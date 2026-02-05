@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>モンスターRPG</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            overflow-x: hidden;
+            touch-action: pan-y;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <!-- React and ReactDOM from CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // モンスターデータベース
+        const MONSTER_DATABASE = {
+          1: { id: 1, name: 'ヒトカ', type: 'fire', baseHP: 39, baseAtk: 52, baseDef: 43, evolvesTo: 2, evolveLevel: 16 },
+          2: { id: 2, name: 'ヒカリュウ', type: 'fire', baseHP: 58, baseAtk: 64, baseDef: 58, evolvesTo: 3, evolveLevel: 36 },
+          3: { id: 3, name: 'リザード', type: 'fire', baseHP: 78, baseAtk: 84, baseDef: 78, evolvesTo: null, evolveLevel: null },
+          4: { id: 4, name: 'ミズガメ', type: 'water', baseHP: 44, baseAtk: 48, baseDef: 65, evolvesTo: 5, evolveLevel: 16 },
+          5: { id: 5, name: 'カメックス', type: 'water', baseHP: 59, baseAtk: 63, baseDef: 80, evolvesTo: 6, evolveLevel: 36 },
+          6: { id: 6, name: 'カメキング', type: 'water', baseHP: 79, baseAtk: 83, baseDef: 100, evolvesTo: null, evolveLevel: null },
+          7: { id: 7, name: 'クサダネ', type: 'grass', baseHP: 45, baseAtk: 49, baseDef: 49, evolvesTo: 8, evolveLevel: 16 },
+          8: { id: 8, name: 'クサバナ', type: 'grass', baseHP: 60, baseAtk: 62, baseDef: 63, evolvesTo: 9, evolveLevel: 36 },
+          9: { id: 9, name: 'クサオー', type: 'grass', baseHP: 80, baseAtk: 82, baseDef: 83, evolvesTo: null, evolveLevel: null }
+        };
+
+        // 技データベース
+        const MOVES_DATABASE = {
+          fire: [
+            { name: 'ひっかく', power: 40, type: 'normal', level: 1 },
+            { name: 'ひのこ', power: 40, type: 'fire', level: 1 },
+            { name: 'きりさく', power: 70, type: 'normal', level: 20 },
+            { name: 'かえんほうしゃ', power: 95, type: 'fire', level: 30 }
+          ],
+          water: [
+            { name: 'たいあたり', power: 40, type: 'normal', level: 1 },
+            { name: 'みずでっぽう', power: 40, type: 'water', level: 1 },
+            { name: 'かみつく', power: 60, type: 'normal', level: 20 },
+            { name: 'ハイドロポンプ', power: 110, type: 'water', level: 30 }
+          ],
+          grass: [
+            { name: 'たいあたり', power: 40, type: 'normal', level: 1 },
+            { name: 'つるのムチ', power: 45, type: 'grass', level: 1 },
+            { name: 'はっぱカッター', power: 55, type: 'grass', level: 20 },
+            { name: 'ソーラービーム', power: 120, type: 'grass', level: 30 }
+          ]
+        };
+
+        // タイプ相性
+        const TYPE_CHART = {
+          fire: { grass: 2, water: 0.5, fire: 1, normal: 1 },
+          water: { fire: 2, grass: 0.5, water: 1, normal: 1 },
+          grass: { water: 2, fire: 0.5, grass: 1, normal: 1 },
+          normal: { fire: 1, water: 1, grass: 1, normal: 1 }
+        };
+
+        const PokemonRPG = () => {
+          const [screen, setScreen] = useState('title');
+          const [playerMonster, setPlayerMonster] = useState(null);
+          const [enemyMonster, setEnemyMonster] = useState(null);
+          const [battleLog, setBattleLog] = useState([]);
+          const [isPlayerTurn, setIsPlayerTurn] = useState(true);
+          const [battlesWon, setBattlesWon] = useState(0);
+          const [isAnimating, setIsAnimating] = useState(false);
+          const [damageFlash, setDamageFlash] = useState(null);
+          const [showEvolution, setShowEvolution] = useState(false);
+          const [evolutionData, setEvolutionData] = useState(null);
+
+          useEffect(() => {
+            const saved = localStorage.getItem('pokemonRPGSave');
+            if (saved) {
+              const data = JSON.parse(saved);
+              if (data.playerMonster) {
+                setPlayerMonster(data.playerMonster);
+                setBattlesWon(data.battlesWon || 0);
+                setScreen('main');
+              }
+            }
+          }, []);
+
+          const saveGame = (monster, wins) => {
+            localStorage.setItem('pokemonRPGSave', JSON.stringify({
+              playerMonster: monster,
+              battlesWon: wins
+            }));
+          };
+
+          const createMonster = (monsterId, level = 1) => {
+            const baseData = MONSTER_DATABASE[monsterId];
+            const hpBonus = (level - 1) * 5;
+            const atkBonus = (level - 1) * 3;
+            const defBonus = (level - 1) * 3;
+            
+            const maxHP = baseData.baseHP + hpBonus;
+            const moves = MOVES_DATABASE[baseData.type].filter(m => m.level <= level);
+            
+            return {
+              ...baseData,
+              level,
+              exp: 0,
+              expToNext: level * 100,
+              currentHP: maxHP,
+              maxHP,
+              attack: baseData.baseAtk + atkBonus,
+              defense: baseData.baseDef + defBonus,
+              moves: moves.slice(-4)
+            };
+          };
+
+          const selectStarter = (monsterId) => {
+            const monster = createMonster(monsterId, 5);
+            setPlayerMonster(monster);
+            saveGame(monster, 0);
+            setScreen('main');
+          };
+
+          const startBattle = () => {
+            const playerLevel = playerMonster.level;
+            const enemyLevel = Math.max(1, playerLevel + Math.floor(Math.random() * 5) - 2);
+            const enemyTypes = ['fire', 'water', 'grass'];
+            const randomType = enemyTypes[Math.floor(Math.random() * 3)];
+            
+            let enemyId;
+            if (randomType === 'fire') enemyId = enemyLevel >= 36 ? 3 : enemyLevel >= 16 ? 2 : 1;
+            else if (randomType === 'water') enemyId = enemyLevel >= 36 ? 6 : enemyLevel >= 16 ? 5 : 4;
+            else enemyId = enemyLevel >= 36 ? 9 : enemyLevel >= 16 ? 8 : 7;
+            
+            const enemy = createMonster(enemyId, enemyLevel);
+            setEnemyMonster(enemy);
+            setBattleLog([`野生の${enemy.name}が現れた！`]);
+            setIsPlayerTurn(true);
+            setScreen('battle');
+          };
+
+          const calculateDamage = (attacker, defender, move) => {
+            const effectiveness = TYPE_CHART[move.type][defender.type];
+            const baseDamage = ((attacker.attack * move.power / defender.defense) / 10) * effectiveness;
+            const damage = Math.max(1, Math.floor(baseDamage));
+            return { damage, effectiveness };
+          };
+
+          const playerAttack = (move) => {
+            if (isAnimating || !isPlayerTurn) return;
+            
+            setIsAnimating(true);
+            const { damage, effectiveness } = calculateDamage(playerMonster, enemyMonster, move);
+            
+            const newEnemyHP = Math.max(0, enemyMonster.currentHP - damage);
+            setEnemyMonster({ ...enemyMonster, currentHP: newEnemyHP });
+            setDamageFlash('enemy');
+            
+            let effectText = '';
+            if (effectiveness === 2) effectText = '効果は抜群だ！';
+            else if (effectiveness === 0.5) effectText = '効果はいまひとつだ...';
+            
+            setBattleLog(prev => [...prev, `${playerMonster.name}の${move.name}！`, effectText].filter(Boolean));
+            
+            setTimeout(() => {
+              setDamageFlash(null);
+              if (newEnemyHP === 0) {
+                setTimeout(() => {
+                  const expGained = enemyMonster.level * 50;
+                  const newExp = playerMonster.exp + expGained;
+                  
+                  setBattleLog(prev => [...prev, `${enemyMonster.name}を倒した！`, `${expGained}の経験値を得た！`]);
+                  
+                  if (newExp >= playerMonster.expToNext) {
+                    levelUp(expGained);
+                  } else {
+                    const updatedMonster = { ...playerMonster, exp: newExp };
+                    setPlayerMonster(updatedMonster);
+                    const newWins = battlesWon + 1;
+                    setBattlesWon(newWins);
+                    saveGame(updatedMonster, newWins);
+                    
+                    setTimeout(() => {
+                      setScreen('main');
+                      setIsAnimating(false);
+                    }, 2000);
+                  }
+                }, 1000);
+              } else {
+                setIsPlayerTurn(false);
+                setTimeout(() => enemyAttack(), 1500);
+              }
+            }, 500);
+          };
+
+          const enemyAttack = () => {
+            const move = enemyMonster.moves[Math.floor(Math.random() * enemyMonster.moves.length)];
+            const { damage } = calculateDamage(enemyMonster, playerMonster, move);
+            
+            const newPlayerHP = Math.max(0, playerMonster.currentHP - damage);
+            setPlayerMonster({ ...playerMonster, currentHP: newPlayerHP });
+            setDamageFlash('player');
+            
+            setBattleLog(prev => [...prev, `${enemyMonster.name}の${move.name}！`]);
+            
+            setTimeout(() => {
+              setDamageFlash(null);
+              if (newPlayerHP === 0) {
+                setBattleLog(prev => [...prev, `${playerMonster.name}は倒れた...`]);
+                setTimeout(() => {
+                  setScreen('gameover');
+                  setIsAnimating(false);
+                }, 2000);
+              } else {
+                setIsPlayerTurn(true);
+                setIsAnimating(false);
+              }
+            }, 500);
+          };
+
+          const levelUp = (expGained) => {
+            const newLevel = playerMonster.level + 1;
+            const newMaxHP = playerMonster.maxHP + 5;
+            const newAttack = playerMonster.attack + 3;
+            const newDefense = playerMonster.defense + 3;
+            const newExpToNext = newLevel * 100;
+            const remainingExp = (playerMonster.exp + expGained) - playerMonster.expToNext;
+            
+            const newMoves = MOVES_DATABASE[playerMonster.type].filter(m => m.level <= newLevel).slice(-4);
+            
+            let updatedMonster = {
+              ...playerMonster,
+              level: newLevel,
+              exp: remainingExp,
+              expToNext: newExpToNext,
+              currentHP: playerMonster.currentHP + 5,
+              maxHP: newMaxHP,
+              attack: newAttack,
+              defense: newDefense,
+              moves: newMoves
+            };
+            
+            setBattleLog(prev => [...prev, `${playerMonster.name}はレベル${newLevel}になった！`]);
+            
+            if (playerMonster.evolvesTo && newLevel >= playerMonster.evolveLevel) {
+              setTimeout(() => {
+                evolveMonster(updatedMonster);
+              }, 2000);
+            } else {
+              setPlayerMonster(updatedMonster);
+              const newWins = battlesWon + 1;
+              setBattlesWon(newWins);
+              saveGame(updatedMonster, newWins);
+              
+              setTimeout(() => {
+                setScreen('main');
+                setIsAnimating(false);
+              }, 2000);
+            }
+          };
+
+          const evolveMonster = (monster) => {
+            const evolvedData = MONSTER_DATABASE[monster.evolvesTo];
+            setEvolutionData({ from: monster.name, to: evolvedData.name });
+            setShowEvolution(true);
+            
+            setTimeout(() => {
+              const hpBonus = (monster.level - 1) * 5;
+              const atkBonus = (monster.level - 1) * 3;
+              const defBonus = (monster.level - 1) * 3;
+              
+              const hpIncrease = (evolvedData.baseHP - MONSTER_DATABASE[monster.id].baseHP);
+              const atkIncrease = (evolvedData.baseAtk - MONSTER_DATABASE[monster.id].baseAtk);
+              const defIncrease = (evolvedData.baseDef - MONSTER_DATABASE[monster.id].baseDef);
+              
+              const evolvedMonster = {
+                ...monster,
+                ...evolvedData,
+                maxHP: evolvedData.baseHP + hpBonus,
+                currentHP: monster.currentHP + hpIncrease,
+                attack: evolvedData.baseAtk + atkBonus,
+                defense: evolvedData.baseDef + defBonus
+              };
+              
+              setPlayerMonster(evolvedMonster);
+              const newWins = battlesWon + 1;
+              setBattlesWon(newWins);
+              saveGame(evolvedMonster, newWins);
+              
+              setTimeout(() => {
+                setShowEvolution(false);
+                setScreen('main');
+                setIsAnimating(false);
+              }, 3000);
+            }, 2000);
+          };
+
+          const healMonster = () => {
+            const healed = { ...playerMonster, currentHP: playerMonster.maxHP };
+            setPlayerMonster(healed);
+            saveGame(healed, battlesWon);
+          };
+
+          const resetGame = () => {
+            localStorage.removeItem('pokemonRPGSave');
+            setPlayerMonster(null);
+            setEnemyMonster(null);
+            setBattlesWon(0);
+            setScreen('title');
+          };
+
+          const getHPBarColor = (current, max) => {
+            const percentage = (current / max) * 100;
+            if (percentage > 50) return '#48D248';
+            if (percentage > 25) return '#F8D030';
+            return '#F85030';
+          };
+
+          const getTypeColor = (type) => {
+            const colors = {
+              fire: '#F08030',
+              water: '#6890F0',
+              grass: '#78C850',
+              normal: '#A8A878'
+            };
+            return colors[type];
+          };
+
+          if (screen === 'title') {
+            return (
+              <div style={{ 
+                minHeight: '100vh', 
+                background: 'linear-gradient(to bottom, #87CEEB, #E8F4F8)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontFamily: 'monospace',
+                padding: '20px'
+              }}>
+                <div style={{ 
+                  background: 'white', 
+                  border: '4px solid #333',
+                  borderRadius: '10px',
+                  padding: '40px',
+                  textAlign: 'center',
+                  maxWidth: '500px'
+                }}>
+                  <h1 style={{ fontSize: '36px', margin: '0 0 20px 0', color: '#333' }}>
+                    ⚡ モンスターRPG ⚡
+                  </h1>
+                  <p style={{ fontSize: '16px', marginBottom: '30px', color: '#666' }}>
+                    初代ポケモン風の育成バトルゲーム
+                  </p>
+                  <button
+                    onClick={() => setScreen('select')}
+                    style={{
+                      background: '#4A90E2',
+                      color: 'white',
+                      border: 'none',
+                      padding: '15px 40px',
+                      fontSize: '18px',
+                      borderRadius: '5px',
+                      cursor: 'pointer',
+                      fontFamily: 'monospace',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    はじめる
+                  </button>
+                </div>
+              </div>
+            );
+          }
+
+          if (screen === 'select') {
+            return (
+              <div style={{ 
+                minHeight: '100vh', 
+                background: 'linear-gradient(to bottom, #87CEEB, #E8F4F8)',
+                padding: '20px',
+                fontFamily: 'monospace'
+              }}>
+                <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+                  <h2 style={{ textAlign: 'center', fontSize: '24px', marginBottom: '30px' }}>
+                    最初のモンスターを選んでください
+                  </h2>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
+                    {[1, 4, 7].map(id => {
+                      const monster = MONSTER_DATABASE[id];
+                      return (
+                        <div
+                          key={id}
+                          onClick={() => selectStarter(id)}
+                          style={{
+                            background: 'white',
+                            border: '3px solid #333',
+                            borderRadius: '10px',
+                            padding: '20px',
+                            cursor: 'pointer',
+                            textAlign: 'center'
+                          }}
+                        >
+                          <div style={{
+                            width: '100px',
+                            height: '100px',
+                            margin: '0 auto 15px',
+                            background: getTypeColor(monster.type),
+                            borderRadius: '50%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '48px'
+                          }}>
+                            {monster.type === 'fire' ? '🔥' : monster.type === 'water' ? '💧' : '🌿'}
+                          </div>
+                          <h3 style={{ margin: '10px 0', fontSize: '20px' }}>{monster.name}</h3>
+                          <p style={{ margin: '5px 0', color: '#666', fontSize: '14px' }}>
+                            タイプ: {monster.type === 'fire' ? '炎' : monster.type === 'water' ? '水' : '草'}
+                          </p>
+                          <p style={{ margin: '5px 0', fontSize: '12px' }}>HP: {monster.baseHP} / 攻撃: {monster.baseAtk} / 防御: {monster.baseDef}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          if (screen === 'main') {
+            return (
+              <div style={{ 
+                minHeight: '100vh', 
+                background: 'linear-gradient(to bottom, #87CEEB, #E8F4F8)',
+                padding: '20px',
+                fontFamily: 'monospace'
+              }}>
+                <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+                  <div style={{ 
+                    background: 'white', 
+                    border: '3px solid #333',
+                    borderRadius: '10px',
+                    padding: '30px',
+                    marginBottom: '20px'
+                  }}>
+                    <h2 style={{ textAlign: 'center', marginBottom: '20px' }}>あなたのモンスター</h2>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                      <div style={{
+                        width: '120px',
+                        height: '120px',
+                        background: getTypeColor(playerMonster.type),
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '64px',
+                        flexShrink: 0
+                      }}>
+                        {playerMonster.type === 'fire' ? '🔥' : playerMonster.type === 'water' ? '💧' : '🌿'}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <h3 style={{ margin: '0 0 10px 0', fontSize: '24px' }}>{playerMonster.name} Lv.{playerMonster.level}</h3>
+                        <div style={{ marginBottom: '8px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                            <span>HP:</span>
+                            <span>{playerMonster.currentHP} / {playerMonster.maxHP}</span>
+                          </div>
+                          <div style={{ 
+                            width: '100%', 
+                            height: '20px', 
+                            background: '#ddd', 
+                            borderRadius: '10px',
+                            overflow: 'hidden'
+                          }}>
+                            <div style={{ 
+                              width: `${(playerMonster.currentHP / playerMonster.maxHP) * 100}%`,
+                              height: '100%',
+                              background: getHPBarColor(playerMonster.currentHP, playerMonster.maxHP),
+                              transition: 'width 0.3s'
+                            }} />
+                          </div>
+                        </div>
+                        <div style={{ marginBottom: '8px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                            <span>EXP:</span>
+                            <span>{playerMonster.exp} / {playerMonster.expToNext}</span>
+                          </div>
+                          <div style={{ 
+                            width: '100%', 
+                            height: '12px', 
+                            background: '#ddd', 
+                            borderRadius: '6px',
+                            overflow: 'hidden'
+                          }}>
+                            <div style={{ 
+                              width: `${(playerMonster.exp / playerMonster.expToNext) * 100}%`,
+                              height: '100%',
+                              background: '#4A90E2',
+                              transition: 'width 0.3s'
+                            }} />
+                          </div>
+                        </div>
+                        <p style={{ margin: '5px 0', fontSize: '14px' }}>
+                          攻撃: {playerMonster.attack} / 防御: {playerMonster.defense}
+                        </p>
+                      </div>
+                    </div>
+                    <div style={{ marginTop: '20px' }}>
+                      <h4 style={{ marginBottom: '10px' }}>習得している技:</h4>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                        {playerMonster.moves.map((move, idx) => (
+                          <div key={idx} style={{
+                            padding: '10px',
+                            background: '#f0f0f0',
+                            borderRadius: '5px',
+                            border: '2px solid #999'
+                          }}>
+                            <div style={{ fontWeight: 'bold' }}>{move.name}</div>
+                            <div style={{ fontSize: '12px', color: '#666' }}>威力: {move.power}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{
+                    background: 'white',
+                    border: '3px solid #333',
+                    borderRadius: '10px',
+                    padding: '20px',
+                    marginBottom: '20px',
+                    textAlign: 'center'
+                  }}>
+                    <p style={{ fontSize: '18px', marginBottom: '10px' }}>
+                      🏆 勝利数: {battlesWon}
+                    </p>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button
+                      onClick={startBattle}
+                      style={{
+                        flex: 1,
+                        background: '#48D248',
+                        color: 'white',
+                        border: 'none',
+                        padding: '15px',
+                        fontSize: '18px',
+                        borderRadius: '5px',
+                        cursor: 'pointer',
+                        fontFamily: 'monospace',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      バトル開始
+                    </button>
+                    <button
+                      onClick={healMonster}
+                      disabled={playerMonster.currentHP === playerMonster.maxHP}
+                      style={{
+                        flex: 1,
+                        background: playerMonster.currentHP === playerMonster.maxHP ? '#ccc' : '#F8D030',
+                        color: playerMonster.currentHP === playerMonster.maxHP ? '#999' : 'white',
+                        border: 'none',
+                        padding: '15px',
+                        fontSize: '18px',
+                        borderRadius: '5px',
+                        cursor: playerMonster.currentHP === playerMonster.maxHP ? 'not-allowed' : 'pointer',
+                        fontFamily: 'monospace',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      回復
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={resetGame}
+                    style={{
+                      width: '100%',
+                      marginTop: '10px',
+                      background: '#999',
+                      color: 'white',
+                      border: 'none',
+                      padding: '10px',
+                      fontSize: '14px',
+                      borderRadius: '5px',
+                      cursor: 'pointer',
+                      fontFamily: 'monospace'
+                    }}
+                  >
+                    ゲームをリセット
+                  </button>
+                </div>
+              </div>
+            );
+          }
+
+          if (screen === 'battle') {
+            return (
+              <div style={{ 
+                minHeight: '100vh', 
+                background: 'linear-gradient(to bottom, #87CEEB, #E8F4F8)',
+                padding: '20px',
+                fontFamily: 'monospace'
+              }}>
+                <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'flex-end',
+                    marginBottom: '40px',
+                    paddingRight: '50px'
+                  }}>
+                    <div>
+                      <div style={{
+                        background: 'white',
+                        border: '3px solid #333',
+                        borderRadius: '10px',
+                        padding: '15px',
+                        marginBottom: '15px',
+                        minWidth: '250px'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                          <span style={{ fontWeight: 'bold', fontSize: '18px' }}>{enemyMonster.name}</span>
+                          <span>Lv.{enemyMonster.level}</span>
+                        </div>
+                        <div style={{ marginBottom: '5px', display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
+                          <span>HP:</span>
+                          <span>{enemyMonster.currentHP} / {enemyMonster.maxHP}</span>
+                        </div>
+                        <div style={{ 
+                          width: '100%', 
+                          height: '20px', 
+                          background: '#ddd', 
+                          borderRadius: '10px',
+                          overflow: 'hidden'
+                        }}>
+                          <div style={{ 
+                            width: `${(enemyMonster.currentHP / enemyMonster.maxHP) * 100}%`,
+                            height: '100%',
+                            background: getHPBarColor(enemyMonster.currentHP, enemyMonster.maxHP),
+                            transition: 'width 0.3s'
+                          }} />
+                        </div>
+                      </div>
+                      <div style={{
+                        width: '150px',
+                        height: '150px',
+                        background: damageFlash === 'enemy' ? '#ff000080' : getTypeColor(enemyMonster.type),
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '80px',
+                        transition: 'background 0.3s',
+                        margin: '0 auto'
+                      }}>
+                        {enemyMonster.type === 'fire' ? '🔥' : enemyMonster.type === 'water' ? '💧' : '🌿'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'flex-start',
+                    marginBottom: '30px',
+                    paddingLeft: '50px'
+                  }}>
+                    <div>
+                      <div style={{
+                        width: '150px',
+                        height: '150px',
+                        background: damageFlash === 'player' ? '#ff000080' : getTypeColor(playerMonster.type),
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '80px',
+                        transition: 'background 0.3s',
+                        margin: '0 auto 15px'
+                      }}>
+                        {playerMonster.type === 'fire' ? '🔥' : playerMonster.type === 'water' ? '💧' : '🌿'}
+                      </div>
+                      <div style={{
+                        background: 'white',
+                        border: '3px solid #333',
+                        borderRadius: '10px',
+                        padding: '15px',
+                        minWidth: '250px'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                          <span style={{ fontWeight: 'bold', fontSize: '18px' }}>{playerMonster.name}</span>
+                          <span>Lv.{playerMonster.level}</span>
+                        </div>
+                        <div style={{ marginBottom: '5px', display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
+                          <span>HP:</span>
+                          <span>{playerMonster.currentHP} / {playerMonster.maxHP}</span>
+                        </div>
+                        <div style={{ 
+                          width: '100%', 
+                          height: '20px', 
+                          background: '#ddd', 
+                          borderRadius: '10px',
+                          overflow: 'hidden',
+                          marginBottom: '8px'
+                        }}>
+                          <div style={{ 
+                            width: `${(playerMonster.currentHP / playerMonster.maxHP) * 100}%`,
+                            height: '100%',
+                            background: getHPBarColor(playerMonster.currentHP, playerMonster.maxHP),
+                            transition: 'width 0.3s'
+                          }} />
+                        </div>
+                        <div style={{ marginBottom: '5px', display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                          <span>EXP:</span>
+                          <span>{playerMonster.exp} / {playerMonster.expToNext}</span>
+                        </div>
+                        <div style={{ 
+                          width: '100%', 
+                          height: '12px', 
+                          background: '#ddd', 
+                          borderRadius: '6px',
+                          overflow: 'hidden'
+                        }}>
+                          <div style={{ 
+                            width: `${(playerMonster.exp / playerMonster.expToNext) * 100}%`,
+                            height: '100%',
+                            background: '#4A90E2',
+                            transition: 'width 0.3s'
+                          }} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{
+                    background: 'white',
+                    border: '3px solid #333',
+                    borderRadius: '10px',
+                    padding: '20px',
+                    marginBottom: '20px',
+                    minHeight: '100px',
+                    maxHeight: '120px',
+                    overflowY: 'auto'
+                  }}>
+                    {battleLog.map((log, idx) => (
+                      <p key={idx} style={{ margin: '5px 0', fontSize: '16px' }}>{log}</p>
+                    ))}
+                  </div>
+
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: '15px'
+                  }}>
+                    {playerMonster.moves.map((move, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => playerAttack(move)}
+                        disabled={!isPlayerTurn || isAnimating}
+                        style={{
+                          background: !isPlayerTurn || isAnimating ? '#ccc' : '#4A90E2',
+                          color: 'white',
+                          border: '3px solid #333',
+                          padding: '20px',
+                          fontSize: '16px',
+                          borderRadius: '10px',
+                          cursor: !isPlayerTurn || isAnimating ? 'not-allowed' : 'pointer',
+                          fontFamily: 'monospace',
+                          fontWeight: 'bold',
+                          textAlign: 'left'
+                        }}
+                      >
+                        <div style={{ fontSize: '18px', marginBottom: '5px' }}>{move.name}</div>
+                        <div style={{ fontSize: '14px', opacity: 0.8 }}>
+                          威力: {move.power} / タイプ: {move.type === 'fire' ? '炎' : move.type === 'water' ? '水' : move.type === 'grass' ? '草' : 'ノーマル'}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          if (showEvolution) {
+            return (
+              <div style={{ 
+                minHeight: '100vh', 
+                background: 'linear-gradient(to bottom, #1a1a2e, #16213e)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontFamily: 'monospace',
+                color: 'white'
+              }}>
+                <div style={{ textAlign: 'center' }}>
+                  <h1 style={{ fontSize: '36px', marginBottom: '30px' }}>
+                    ✨ 進化中... ✨
+                  </h1>
+                  <p style={{ fontSize: '24px' }}>
+                    {evolutionData.from} → {evolutionData.to}
+                  </p>
+                </div>
+              </div>
+            );
+          }
+
+          if (screen === 'gameover') {
+            return (
+              <div style={{ 
+                minHeight: '100vh', 
+                background: 'linear-gradient(to bottom, #2c2c2c, #1a1a1a)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontFamily: 'monospace',
+                padding: '20px'
+              }}>
+                <div style={{ 
+                  background: 'white', 
+                  border: '4px solid #333',
+                  borderRadius: '10px',
+                  padding: '40px',
+                  textAlign: 'center',
+                  maxWidth: '500px'
+                }}>
+                  <h1 style={{ fontSize: '36px', margin: '0 0 20px 0', color: '#F85030' }}>
+                    GAME OVER
+                  </h1>
+                  <p style={{ fontSize: '18px', marginBottom: '10px' }}>
+                    {playerMonster.name}は力尽きた...
+                  </p>
+                  <p style={{ fontSize: '16px', marginBottom: '30px', color: '#666' }}>
+                    勝利数: {battlesWon}
+                  </p>
+                  <button
+                    onClick={resetGame}
+                    style={{
+                      background: '#4A90E2',
+                      color: 'white',
+                      border: 'none',
+                      padding: '15px 40px',
+                      fontSize: '18px',
+                      borderRadius: '5px',
+                      cursor: 'pointer',
+                      fontFamily: 'monospace',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    最初から
+                  </button>
+                </div>
+              </div>
+            );
+          }
+
+          return null;
+        };
+
+        ReactDOM.render(<PokemonRPG />, document.getElementById('root'));
+    </script>
+</body>
+</html>
