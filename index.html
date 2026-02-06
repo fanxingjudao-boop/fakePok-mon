@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>モンスターアドベンチャー</title>
+    <meta name="theme-color" content="#667eea">
+    <title>Monster Quest - 究極の冒険</title>
     <style>
         * {
             margin: 0;
@@ -13,26 +14,155 @@
             box-sizing: border-box;
             -webkit-tap-highlight-color: transparent;
         }
+        
         body {
             overflow-x: hidden;
+            overflow-y: auto;
             touch-action: pan-y;
-            font-family: 'Arial', 'Hiragino Sans', sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+            background: #1a1a2e;
         }
+        
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
+            from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-8px); }
-            75% { transform: translateX(8px); }
+        
+        @keyframes slideIn {
+            from { transform: translateX(-100%); }
+            to { transform: translateX(0); }
         }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0) rotate(0deg); }
+            25% { transform: translateX(-10px) rotate(-5deg); }
+            75% { transform: translateX(10px) rotate(5deg); }
+        }
+        
         @keyframes bounce {
             0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
+            50% { transform: translateY(-20px); }
         }
-        .fade-in {
-            animation: fadeIn 0.5s ease-out;
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+        }
+        
+        @keyframes sparkle {
+            0%, 100% { opacity: 0; transform: scale(0); }
+            50% { opacity: 1; transform: scale(1); }
+        }
+        
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(255, 215, 0, 0.5); }
+            50% { box-shadow: 0 0 40px rgba(255, 215, 0, 0.8); }
+        }
+        
+        .fade-in { animation: fadeIn 0.5s ease-out forwards; }
+        .slide-in { animation: slideIn 0.4s ease-out forwards; }
+        .shake { animation: shake 0.5s ease-in-out; }
+        .bounce { animation: bounce 2s ease-in-out infinite; }
+        .pulse { animation: pulse 2s ease-in-out infinite; }
+        .glow { animation: glow 2s ease-in-out infinite; }
+        
+        .monster-sprite {
+            position: relative;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .monster-sprite::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 120%;
+            height: 120%;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .monster-sprite:hover::before {
+            opacity: 0.3;
+        }
+        
+        .button-press {
+            transition: all 0.1s;
+        }
+        
+        .button-press:active {
+            transform: scale(0.95);
+        }
+        
+        .hp-bar-container {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .hp-bar-shine {
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 30%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            animation: shine 3s infinite;
+        }
+        
+        @keyframes shine {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+        
+        .map-tile {
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        
+        .map-tile:hover {
+            transform: scale(1.05);
+            filter: brightness(1.2);
+        }
+        
+        .text-gradient {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        
+        .glass {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        /* スクロールバーのスタイル */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
         }
     </style>
 </head>
@@ -44,50 +174,70 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState, useEffect, useRef } = React;
 
-        // ゲームデータ
+        // ============ ゲームデータベース ============
+        
         const MONSTER_DATABASE = {
-          // 炎タイプ
-          1: { id: 1, name: 'ヒトカ', type: 'fire', baseHP: 28, baseAtk: 45, baseDef: 35, evolvesTo: 2, evolveLevel: 12, sprite: '🦎' },
-          2: { id: 2, name: 'ヒカリュウ', type: 'fire', baseHP: 42, baseAtk: 58, baseDef: 48, evolvesTo: 3, evolveLevel: 28, sprite: '🐲' },
-          3: { id: 3, name: 'リザード', type: 'fire', baseHP: 58, baseAtk: 78, baseDef: 62, evolvesTo: null, evolveLevel: null, sprite: '🔥' },
-          4: { id: 4, name: 'フレイム', type: 'fire', baseHP: 30, baseAtk: 50, baseDef: 30, evolvesTo: 5, evolveLevel: 15, sprite: '🌋' },
-          5: { id: 5, name: 'マグマドン', type: 'fire', baseHP: 55, baseAtk: 85, baseDef: 55, evolvesTo: null, evolveLevel: null, sprite: '🌶️' },
+          // 炎タイプ - 10種類
+          1: { id: 1, name: 'ヒノコ', type: 'fire', baseHP: 25, baseAtk: 40, baseDef: 32, evolvesTo: 2, evolveLevel: 10, sprite: '🦎', rarity: 'common' },
+          2: { id: 2, name: 'フレイザード', type: 'fire', baseHP: 38, baseAtk: 52, baseDef: 45, evolvesTo: 3, evolveLevel: 25, sprite: '🐉', rarity: 'uncommon' },
+          3: { id: 3, name: 'インフェルノドラゴン', type: 'fire', baseHP: 55, baseAtk: 75, baseDef: 60, evolvesTo: null, evolveLevel: null, sprite: '🔥', rarity: 'rare' },
+          4: { id: 4, name: 'ホムラ', type: 'fire', baseHP: 28, baseAtk: 45, baseDef: 28, evolvesTo: 5, evolveLevel: 12, sprite: '🌋', rarity: 'common' },
+          5: { id: 5, name: 'マグマロン', type: 'fire', baseHP: 50, baseAtk: 80, baseDef: 52, evolvesTo: null, evolveLevel: null, sprite: '🌶️', rarity: 'rare' },
+          6: { id: 6, name: 'スパーキー', type: 'fire', baseHP: 30, baseAtk: 48, baseDef: 35, evolvesTo: 7, evolveLevel: 15, sprite: '✨', rarity: 'uncommon' },
+          7: { id: 7, name: 'フェニックス', type: 'fire', baseHP: 52, baseAtk: 85, baseDef: 55, evolvesTo: null, evolveLevel: null, sprite: '🦅', rarity: 'legendary' },
+          8: { id: 8, name: 'コロナ', type: 'fire', baseHP: 26, baseAtk: 42, baseDef: 30, evolvesTo: 9, evolveLevel: 11, sprite: '☀️', rarity: 'common' },
+          9: { id: 9, name: 'ソーラーキング', type: 'fire', baseHP: 48, baseAtk: 78, baseDef: 58, evolvesTo: null, evolveLevel: null, sprite: '👑', rarity: 'rare' },
+          10: { id: 10, name: 'ボルケーノ', type: 'fire', baseHP: 60, baseAtk: 90, baseDef: 65, evolvesTo: null, evolveLevel: null, sprite: '💥', rarity: 'legendary' },
           
-          // 水タイプ
-          6: { id: 6, name: 'ミズガメ', type: 'water', baseHP: 32, baseAtk: 40, baseDef: 50, evolvesTo: 7, evolveLevel: 12, sprite: '🐢' },
-          7: { id: 7, name: 'カメックス', type: 'water', baseHP: 45, baseAtk: 55, baseDef: 65, evolvesTo: 8, evolveLevel: 28, sprite: '🌊' },
-          8: { id: 8, name: 'カメキング', type: 'water', baseHP: 62, baseAtk: 70, baseDef: 82, evolvesTo: null, evolveLevel: null, sprite: '💎' },
-          9: { id: 9, name: 'アクアン', type: 'water', baseHP: 35, baseAtk: 48, baseDef: 45, evolvesTo: 10, evolveLevel: 15, sprite: '🐟' },
-          10: { id: 10, name: 'ネプチューン', type: 'water', baseHP: 60, baseAtk: 75, baseDef: 70, evolvesTo: null, evolveLevel: null, sprite: '🔱' },
+          // 水タイプ - 10種類
+          11: { id: 11, name: 'ミズタマ', type: 'water', baseHP: 30, baseAtk: 35, baseDef: 48, evolvesTo: 12, evolveLevel: 10, sprite: '💧', rarity: 'common' },
+          12: { id: 12, name: 'アクアタートル', type: 'water', baseHP: 42, baseAtk: 50, baseDef: 62, evolvesTo: 13, evolveLevel: 25, sprite: '🐢', rarity: 'uncommon' },
+          13: { id: 13, name: 'オーシャンロード', type: 'water', baseHP: 60, baseAtk: 68, baseDef: 80, evolvesTo: null, evolveLevel: null, sprite: '🌊', rarity: 'rare' },
+          14: { id: 14, name: 'フィン', type: 'water', baseHP: 32, baseAtk: 42, baseDef: 42, evolvesTo: 15, evolveLevel: 12, sprite: '🐟', rarity: 'common' },
+          15: { id: 15, name: 'シャーク', type: 'water', baseHP: 48, baseAtk: 72, baseDef: 65, evolvesTo: null, evolveLevel: null, sprite: '🦈', rarity: 'rare' },
+          16: { id: 16, name: 'ドルフィ', type: 'water', baseHP: 35, baseAtk: 45, baseDef: 45, evolvesTo: 17, evolveLevel: 15, sprite: '🐬', rarity: 'uncommon' },
+          17: { id: 17, name: 'ネプチューン', type: 'water', baseHP: 55, baseAtk: 75, baseDef: 70, evolvesTo: null, evolveLevel: null, sprite: '🔱', rarity: 'legendary' },
+          18: { id: 18, name: 'バブル', type: 'water', baseHP: 28, baseAtk: 38, baseDef: 40, evolvesTo: 19, evolveLevel: 11, sprite: '🫧', rarity: 'common' },
+          19: { id: 19, name: 'クリスタル', type: 'water', baseHP: 50, baseAtk: 70, baseDef: 75, evolvesTo: null, evolveLevel: null, sprite: '💎', rarity: 'rare' },
+          20: { id: 20, name: 'リヴァイアサン', type: 'water', baseHP: 65, baseAtk: 82, baseDef: 88, evolvesTo: null, evolveLevel: null, sprite: '🐋', rarity: 'legendary' },
           
-          // 草タイプ
-          11: { id: 11, name: 'クサダネ', type: 'grass', baseHP: 33, baseAtk: 42, baseDef: 40, evolvesTo: 12, evolveLevel: 12, sprite: '🌱' },
-          12: { id: 12, name: 'クサバナ', type: 'grass', baseHP: 46, baseAtk: 56, baseDef: 54, evolvesTo: 13, evolveLevel: 28, sprite: '🌻' },
-          13: { id: 13, name: 'クサオー', type: 'grass', baseHP: 60, baseAtk: 72, baseDef: 68, evolvesTo: null, evolveLevel: null, sprite: '🌳' },
-          14: { id: 14, name: 'ハッパー', type: 'grass', baseHP: 36, baseAtk: 46, baseDef: 42, evolvesTo: 15, evolveLevel: 15, sprite: '🍃' },
-          15: { id: 15, name: 'フォレスト', type: 'grass', baseHP: 58, baseAtk: 80, baseDef: 65, evolvesTo: null, evolveLevel: null, sprite: '🌲' }
+          // 草タイプ - 10種類
+          21: { id: 21, name: 'クサノメ', type: 'grass', baseHP: 32, baseAtk: 38, baseDef: 38, evolvesTo: 22, evolveLevel: 10, sprite: '🌱', rarity: 'common' },
+          22: { id: 22, name: 'グリーンフラワー', type: 'grass', baseHP: 44, baseAtk: 52, baseDef: 52, evolvesTo: 23, evolveLevel: 25, sprite: '🌻', rarity: 'uncommon' },
+          23: { id: 23, name: 'フォレストキング', type: 'grass', baseHP: 58, baseAtk: 70, baseDef: 68, evolvesTo: null, evolveLevel: null, sprite: '🌳', rarity: 'rare' },
+          24: { id: 24, name: 'リーフ', type: 'grass', baseHP: 33, baseAtk: 42, baseDef: 40, evolvesTo: 25, evolveLevel: 12, sprite: '🍃', rarity: 'common' },
+          25: { id: 25, name: 'ジャングラー', type: 'grass', baseHP: 52, baseAtk: 76, baseDef: 62, evolvesTo: null, evolveLevel: null, sprite: '🌴', rarity: 'rare' },
+          26: { id: 26, name: 'マッシュ', type: 'grass', baseHP: 30, baseAtk: 40, baseDef: 45, evolvesTo: 27, evolveLevel: 15, sprite: '🍄', rarity: 'uncommon' },
+          27: { id: 27, name: 'ガーディアン', type: 'grass', baseHP: 54, baseAtk: 68, baseDef: 78, evolvesTo: null, evolveLevel: null, sprite: '🌲', rarity: 'legendary' },
+          28: { id: 28, name: 'フラワー', type: 'grass', baseHP: 29, baseAtk: 36, baseDef: 42, evolvesTo: 29, evolveLevel: 11, sprite: '🌸', rarity: 'common' },
+          29: { id: 29, name: 'ブロッサム', type: 'grass', baseHP: 48, baseAtk: 65, baseDef: 72, evolvesTo: null, evolveLevel: null, sprite: '🌺', rarity: 'rare' },
+          30: { id: 30, name: 'エルダーツリー', type: 'grass', baseHP: 62, baseAtk: 78, baseDef: 85, evolvesTo: null, evolveLevel: null, sprite: '🎄', rarity: 'legendary' },
         };
 
         const MOVES_DATABASE = {
           fire: [
             { name: 'ひっかく', power: 30, type: 'normal', level: 1, effect: null },
             { name: 'ひのこ', power: 35, type: 'fire', level: 1, effect: null },
-            { name: 'かえんほうしゃ', power: 75, type: 'fire', level: 18, effect: null },
-            { name: 'だいもんじ', power: 95, type: 'fire', level: 25, effect: null }
+            { name: 'ほのおのキバ', power: 55, type: 'fire', level: 14, effect: null },
+            { name: 'かえんほうしゃ', power: 75, type: 'fire', level: 20, effect: null },
+            { name: 'だいもんじ', power: 95, type: 'fire', level: 30, effect: null }
           ],
           water: [
             { name: 'たいあたり', power: 30, type: 'normal', level: 1, effect: null },
             { name: 'みずでっぽう', power: 35, type: 'water', level: 1, effect: null },
-            { name: 'なみのり', power: 75, type: 'water', level: 18, effect: null },
-            { name: 'ハイドロポンプ', power: 95, type: 'water', level: 25, effect: null }
+            { name: 'アクアジェット', power: 55, type: 'water', level: 14, effect: null },
+            { name: 'なみのり', power: 75, type: 'water', level: 20, effect: null },
+            { name: 'ハイドロポンプ', power: 95, type: 'water', level: 30, effect: null }
           ],
           grass: [
             { name: 'つるのムチ', power: 35, type: 'grass', level: 1, effect: null },
             { name: 'はっぱカッター', power: 45, type: 'grass', level: 1, effect: null },
-            { name: 'どくのこな', power: 0, type: 'grass', level: 12, effect: 'poison' },
-            { name: 'ソーラービーム', power: 100, type: 'grass', level: 25, effect: null }
+            { name: 'どくのこな', power: 0, type: 'grass', level: 10, effect: 'poison' },
+            { name: 'しびれごな', power: 0, type: 'grass', level: 12, effect: 'paralyze' },
+            { name: 'はなびらのまい', power: 80, type: 'grass', level: 22, effect: null },
+            { name: 'ソーラービーム', power: 100, type: 'grass', level: 30, effect: null }
           ]
         };
 
@@ -98,39 +248,144 @@
           normal: { fire: 1, water: 1, grass: 1, normal: 1 }
         };
 
-        // アイテムデータベース
         const ITEMS = {
           potion: { name: 'キズぐすり', price: 200, heal: 20, description: 'HPを20回復' },
           superPotion: { name: 'いいキズぐすり', price: 700, heal: 50, description: 'HPを50回復' },
+          hyperPotion: { name: 'すごいキズぐすり', price: 1500, heal: 100, description: 'HPを100回復' },
           antidote: { name: 'どくけし', price: 100, cure: 'poison', description: '毒を治す' },
           awakening: { name: 'ねむけざまし', price: 200, cure: 'sleep', description: '眠りを治す' },
           paralyzHeal: { name: 'まひなおし', price: 200, cure: 'paralyze', description: '麻痺を治す' },
-          monsterBall: { name: 'モンスターボール', price: 200, description: '捕獲アイテム（未実装）' }
+          fullHeal: { name: 'なんでもなおし', price: 600, cure: 'all', description: '全状態異常を治す' }
         };
 
-        // ストーリー進行データ
-        const STORY_DATA = {
+        // マップデータ
+        const WORLD_MAP = {
           towns: [
-            { id: 'start', name: 'はじまりの町', shop: true, heal: true },
-            { id: 'forest', name: 'もりの町', shop: true, heal: true },
-            { id: 'mountain', name: 'やまの町', shop: true, heal: true },
-            { id: 'final', name: 'さいごの町', shop: true, heal: true }
+            { 
+              id: 'meadow', 
+              name: 'みどりの村', 
+              description: '冒険の始まりの場所。平和な村。',
+              sprite: '🏡',
+              position: { x: 1, y: 2 }
+            },
+            { 
+              id: 'forest', 
+              name: 'もりの町', 
+              description: '深い森に囲まれた町。',
+              sprite: '🌲',
+              position: { x: 2, y: 1 }
+            },
+            { 
+              id: 'lake', 
+              name: 'みずうみの町', 
+              description: '美しい湖のほとりの町。',
+              sprite: '🏞️',
+              position: { x: 3, y: 2 }
+            },
+            { 
+              id: 'mountain', 
+              name: 'やまの町', 
+              description: '険しい山の麓の町。',
+              sprite: '⛰️',
+              position: { x: 2, y: 3 }
+            },
+            { 
+              id: 'castle', 
+              name: 'おうじょうの城', 
+              description: 'チャンピオンが待つ場所。',
+              sprite: '🏰',
+              position: { x: 4, y: 2 }
+            }
           ],
           routes: [
-            { id: 'route1', name: '1ばんどうろ', from: 'start', to: 'forest', enemies: [1, 6, 11], minLevel: 3, maxLevel: 6 },
-            { id: 'route2', name: '2ばんどうろ', from: 'forest', to: 'mountain', enemies: [2, 7, 12], minLevel: 10, maxLevel: 15 },
-            { id: 'route3', name: '3ばんどうろ', from: 'mountain', to: 'final', enemies: [3, 8, 13], minLevel: 20, maxLevel: 25 }
+            { 
+              id: 'route1', 
+              name: '1ばんどうろ', 
+              from: 'meadow', 
+              to: 'forest', 
+              enemies: [1, 11, 21], 
+              minLevel: 3, 
+              maxLevel: 7,
+              sprite: '🛤️'
+            },
+            { 
+              id: 'route2', 
+              name: '2ばんどうろ', 
+              from: 'forest', 
+              to: 'lake', 
+              enemies: [2, 12, 22, 4, 14], 
+              minLevel: 10, 
+              maxLevel: 16,
+              sprite: '🌿'
+            },
+            { 
+              id: 'route3', 
+              name: '3ばんどうろ', 
+              from: 'lake', 
+              to: 'mountain', 
+              enemies: [3, 13, 23, 5, 15, 25], 
+              minLevel: 20, 
+              maxLevel: 28,
+              sprite: '🏔️'
+            },
+            { 
+              id: 'route4', 
+              name: 'チャンピオンロード', 
+              from: 'mountain', 
+              to: 'castle', 
+              enemies: [7, 17, 27, 10, 20, 30], 
+              minLevel: 30, 
+              maxLevel: 38,
+              sprite: '⚔️'
+            }
           ],
           rivals: [
-            { id: 'rival1', name: 'ライバル タクミ', location: 'forest', monster: 2, level: 12, reward: 500, sprite: '👦' },
-            { id: 'rival2', name: 'ライバル アカネ', location: 'mountain', monster: 7, level: 20, reward: 1000, sprite: '👧' },
-            { id: 'rival3', name: 'チャンピオン', location: 'final', monster: 3, level: 35, reward: 5000, sprite: '👑' }
+            { id: 'rival1', name: 'ライバル タクミ', location: 'forest', monster: 2, level: 12, reward: 600, sprite: '👦', message: 'やあ！ぼくが先に強くなってやる！' },
+            { id: 'rival2', name: 'エリート アカネ', location: 'lake', monster: 12, level: 22, reward: 1200, sprite: '👧', message: 'あなたの実力、見せてもらうわ！' },
+            { id: 'rival3', name: 'リーダー ケンジ', location: 'mountain', monster: 22, level: 32, reward: 2000, sprite: '🧑', message: 'ここまで来るとは...本気で行くぞ！' },
+            { id: 'champion', name: 'チャンピオン レイナ', location: 'castle', monster: 30, level: 45, reward: 10000, sprite: '👑', message: '頂点を目指す者よ、その力見せてもらおう！' }
+          ],
+          events: [
+            {
+              id: 'oldman1',
+              location: 'meadow',
+              npc: '老人',
+              sprite: '👴',
+              message: '冒険に出るのかい？危険だが、きっと素晴らしい経験になるぞ！',
+              reward: null
+            },
+            {
+              id: 'girl1',
+              location: 'forest',
+              npc: '迷子の少女',
+              sprite: '👧',
+              message: 'あなた、強そうね...怖いモンスター倒してくれたら、これあげる！',
+              reward: { item: 'superPotion', amount: 2 }
+            },
+            {
+              id: 'fisherman',
+              location: 'lake',
+              npc: '釣り人',
+              sprite: '🎣',
+              message: 'この湖には珍しいモンスターがいるんだ。見つけたら教えてくれよ！',
+              reward: { money: 500 }
+            },
+            {
+              id: 'hiker',
+              location: 'mountain',
+              npc: '登山家',
+              sprite: '🥾',
+              message: '山を登りきった者だけが城にたどり着ける。頑張れ！',
+              reward: { item: 'hyperPotion', amount: 3 }
+            }
           ]
         };
 
-        const MonsterRPG = () => {
+        // ============ メインコンポーネント ============
+        
+        const MonsterQuest = () => {
           const [screen, setScreen] = useState('title');
-          const [currentLocation, setCurrentLocation] = useState('start');
+          const [currentLocation, setCurrentLocation] = useState('meadow');
           const [playerMonster, setPlayerMonster] = useState(null);
           const [enemyMonster, setEnemyMonster] = useState(null);
           const [battleLog, setBattleLog] = useState([]);
@@ -138,35 +393,52 @@
           const [money, setMoney] = useState(3000);
           const [inventory, setInventory] = useState({});
           const [defeatedRivals, setDefeatedRivals] = useState([]);
+          const [completedEvents, setCompletedEvents] = useState([]);
           const [isAnimating, setIsAnimating] = useState(false);
           const [damageFlash, setDamageFlash] = useState(null);
           const [showEvolution, setShowEvolution] = useState(false);
           const [evolutionData, setEvolutionData] = useState(null);
-          const [battleType, setBattleType] = useState('wild'); // wild, rival, champion
+          const [battleType, setBattleType] = useState('wild');
           const [currentRival, setCurrentRival] = useState(null);
+          const [showOptions, setShowOptions] = useState(false);
+          const [showMap, setShowMap] = useState(false);
+          const [selectedAction, setSelectedAction] = useState(null);
+          const battleLogRef = useRef(null);
 
           useEffect(() => {
-            const saved = localStorage.getItem('monsterRPGSaveV2');
+            const saved = localStorage.getItem('monsterQuestSaveV3');
             if (saved) {
-              const data = JSON.parse(saved);
-              if (data.playerMonster) {
-                setPlayerMonster(data.playerMonster);
-                setMoney(data.money || 3000);
-                setInventory(data.inventory || {});
-                setCurrentLocation(data.location || 'start');
-                setDefeatedRivals(data.defeatedRivals || []);
-                setScreen('town');
+              try {
+                const data = JSON.parse(saved);
+                if (data.playerMonster) {
+                  setPlayerMonster(data.playerMonster);
+                  setMoney(data.money || 3000);
+                  setInventory(data.inventory || {});
+                  setCurrentLocation(data.location || 'meadow');
+                  setDefeatedRivals(data.defeatedRivals || []);
+                  setCompletedEvents(data.completedEvents || []);
+                  setScreen('town');
+                }
+              } catch (e) {
+                console.error('Save data corrupted');
               }
             }
           }, []);
 
-          const saveGame = (monster, loc, mon, inv, rivals) => {
-            localStorage.setItem('monsterRPGSaveV2', JSON.stringify({
+          useEffect(() => {
+            if (battleLogRef.current) {
+              battleLogRef.current.scrollTop = battleLogRef.current.scrollHeight;
+            }
+          }, [battleLog]);
+
+          const saveGame = (monster, loc, mon, inv, rivals, events) => {
+            localStorage.setItem('monsterQuestSaveV3', JSON.stringify({
               playerMonster: monster,
               money: mon,
               inventory: inv,
               location: loc,
-              defeatedRivals: rivals
+              defeatedRivals: rivals,
+              completedEvents: events
             }));
           };
 
@@ -177,7 +449,7 @@
             const defBonus = (level - 1) * 2;
             
             const maxHP = baseData.baseHP + hpBonus;
-            const moves = MOVES_DATABASE[baseData.type].filter(m => m.level <= level);
+            const moves = MOVES_DATABASE[baseData.type].filter(m => m.level <= level).slice(-4);
             
             return {
               ...baseData,
@@ -188,45 +460,48 @@
               maxHP,
               attack: baseData.baseAtk + atkBonus,
               defense: baseData.baseDef + defBonus,
-              moves: moves.slice(-4),
-              status: null // poison, paralyze, sleep
+              moves,
+              status: null
             };
           };
 
           const selectStarter = (monsterId) => {
             const monster = createMonster(monsterId, 5);
             setPlayerMonster(monster);
-            setCurrentLocation('start');
-            saveGame(monster, 'start', 3000, {}, []);
+            setCurrentLocation('meadow');
+            saveGame(monster, 'meadow', 3000, {}, [], []);
             setScreen('story-intro');
           };
 
           const startWildBattle = (routeId) => {
-            const route = STORY_DATA.routes.find(r => r.id === routeId);
+            const route = WORLD_MAP.routes.find(r => r.id === routeId);
             const enemyId = route.enemies[Math.floor(Math.random() * route.enemies.length)];
             const enemyLevel = Math.floor(Math.random() * (route.maxLevel - route.minLevel + 1)) + route.minLevel;
             
             const enemy = createMonster(enemyId, enemyLevel);
             setEnemyMonster(enemy);
             setBattleType('wild');
+            setCurrentRival(null);
             setBattleLog([`野生の${enemy.name}が現れた！`]);
             setIsPlayerTurn(true);
+            setSelectedAction(null);
             setScreen('battle');
           };
 
           const startRivalBattle = (rivalId) => {
-            const rival = STORY_DATA.rivals.find(r => r.id === rivalId);
+            const rival = WORLD_MAP.rivals.find(r => r.id === rivalId);
             const enemy = createMonster(rival.monster, rival.level);
             setEnemyMonster(enemy);
-            setBattleType(rivalId === 'rival3' ? 'champion' : 'rival');
+            setBattleType(rivalId === 'champion' ? 'champion' : 'rival');
             setCurrentRival(rival);
-            setBattleLog([`${rival.name}が勝負を仕掛けてきた！`]);
+            setBattleLog([`${rival.name}が勝負を仕掛けてきた！`, rival.message]);
             setIsPlayerTurn(true);
+            setSelectedAction(null);
             setScreen('battle');
           };
 
           const calculateDamage = (attacker, defender, move) => {
-            if (move.power === 0) return { damage: 0, effectiveness: 1 }; // ステータス技
+            if (move.power === 0) return { damage: 0, effectiveness: 1 };
             
             const effectiveness = TYPE_CHART[move.type][defender.type];
             const baseDamage = ((attacker.attack * move.power / defender.defense) / 5) * effectiveness;
@@ -236,12 +511,11 @@
           };
 
           const applyStatus = (target, effect) => {
-            if (effect === 'poison' && Math.random() < 0.3) {
-              return { ...target, status: 'poison' };
-            } else if (effect === 'paralyze' && Math.random() < 0.25) {
-              return { ...target, status: 'paralyze' };
-            } else if (effect === 'sleep' && Math.random() < 0.2) {
-              return { ...target, status: 'sleep' };
+            if (target.status) return target;
+            
+            const chance = effect === 'poison' ? 0.3 : effect === 'paralyze' ? 0.25 : 0.2;
+            if (Math.random() < chance) {
+              return { ...target, status: effect };
             }
             return target;
           };
@@ -267,8 +541,8 @@
             if (isAnimating || !isPlayerTurn) return;
             
             setIsAnimating(true);
+            setSelectedAction('attack');
             
-            // ステータス異常チェック
             const statusCheck = checkStatus(playerMonster);
             if (statusCheck.message) {
               setBattleLog(prev => [...prev, statusCheck.message]);
@@ -294,7 +568,6 @@
             
             let newEnemy = { ...enemyMonster, currentHP: Math.max(0, enemyMonster.currentHP - damage) };
             
-            // ステータス異常効果
             if (move.effect) {
               newEnemy = applyStatus(newEnemy, move.effect);
             }
@@ -316,7 +589,6 @@
             setTimeout(() => {
               setDamageFlash(null);
               
-              // ステータス異常のダメージ
               if (statusCheck.damage > 0) {
                 const newHP = Math.max(0, playerMonster.currentHP - statusCheck.damage);
                 setPlayerMonster(prev => ({ ...prev, currentHP: newHP }));
@@ -332,7 +604,6 @@
           };
 
           const enemyAttack = () => {
-            // 敵のステータス異常チェック
             const statusCheck = checkStatus(enemyMonster);
             if (statusCheck.message) {
               setBattleLog(prev => [...prev, statusCheck.message]);
@@ -355,6 +626,7 @@
                 }
                 setIsPlayerTurn(true);
                 setIsAnimating(false);
+                setSelectedAction(null);
               }, 1500);
               return;
             }
@@ -371,7 +643,6 @@
             setTimeout(() => {
               setDamageFlash(null);
               
-              // プレイヤーのステータス異常ダメージ
               if (statusCheck.damage > 0) {
                 const newHP = Math.max(0, enemyMonster.currentHP - statusCheck.damage);
                 setEnemyMonster(prev => ({ ...prev, currentHP: newHP }));
@@ -387,10 +658,12 @@
                 setTimeout(() => {
                   setScreen('gameover');
                   setIsAnimating(false);
+                  setSelectedAction(null);
                 }, 2000);
               } else {
                 setIsPlayerTurn(true);
                 setIsAnimating(false);
+                setSelectedAction(null);
               }
             }, 800);
           };
@@ -406,18 +679,21 @@
                   const updated = [...prev, currentRival.id];
                   
                   if (battleType === 'champion') {
-                    // エンディング
                     setTimeout(() => {
                       setScreen('ending');
+                      setSelectedAction(null);
                     }, 3000);
                     return updated;
                   } else {
                     const newMoney = money + reward;
                     setMoney(newMoney);
-                    saveGame(playerMonster, currentLocation, newMoney, inventory, updated);
+                    const clearedMonster = { ...playerMonster, status: null };
+                    setPlayerMonster(clearedMonster);
+                    saveGame(clearedMonster, currentLocation, newMoney, inventory, updated, completedEvents);
                     setTimeout(() => {
                       setScreen('town');
                       setIsAnimating(false);
+                      setSelectedAction(null);
                     }, 3000);
                     return updated;
                   }
@@ -435,11 +711,12 @@
                 } else {
                   const updatedMonster = { ...playerMonster, exp: newExp, status: null };
                   setPlayerMonster(updatedMonster);
-                  saveGame(updatedMonster, currentLocation, newMoney, inventory, defeatedRivals);
+                  saveGame(updatedMonster, currentLocation, newMoney, inventory, defeatedRivals, completedEvents);
                   
                   setTimeout(() => {
                     setScreen('town');
                     setIsAnimating(false);
+                    setSelectedAction(null);
                   }, 3000);
                 }
               }
@@ -461,7 +738,7 @@
               level: newLevel,
               exp: remainingExp,
               expToNext: newExpToNext,
-              currentHP: playerMonster.currentHP + 3,
+              currentHP: Math.min(playerMonster.currentHP + 3, newMaxHP),
               maxHP: newMaxHP,
               attack: newAttack,
               defense: newDefense,
@@ -477,18 +754,19 @@
               }, 2000);
             } else {
               setPlayerMonster(updatedMonster);
-              saveGame(updatedMonster, currentLocation, currentMoney, inventory, defeatedRivals);
+              saveGame(updatedMonster, currentLocation, currentMoney, inventory, defeatedRivals, completedEvents);
               
               setTimeout(() => {
                 setScreen('town');
                 setIsAnimating(false);
+                setSelectedAction(null);
               }, 3000);
             }
           };
 
           const evolveMonster = (monster, currentMoney) => {
             const evolvedData = MONSTER_DATABASE[monster.evolvesTo];
-            setEvolutionData({ from: monster.name, to: evolvedData.name });
+            setEvolutionData({ from: monster, to: evolvedData });
             setShowEvolution(true);
             
             setTimeout(() => {
@@ -502,20 +780,21 @@
                 ...monster,
                 ...evolvedData,
                 maxHP: evolvedData.baseHP + hpBonus,
-                currentHP: monster.currentHP + hpIncrease,
+                currentHP: Math.min(monster.currentHP + hpIncrease, evolvedData.baseHP + hpBonus),
                 attack: evolvedData.baseAtk + atkBonus,
                 defense: evolvedData.baseDef + defBonus
               };
               
               setPlayerMonster(evolvedMonster);
-              saveGame(evolvedMonster, currentLocation, currentMoney, inventory, defeatedRivals);
+              saveGame(evolvedMonster, currentLocation, currentMoney, inventory, defeatedRivals, completedEvents);
               
               setTimeout(() => {
                 setShowEvolution(false);
                 setScreen('town');
                 setIsAnimating(false);
-              }, 3000);
-            }, 2000);
+                setSelectedAction(null);
+              }, 4000);
+            }, 3000);
           };
 
           const useItem = (itemKey) => {
@@ -529,6 +808,9 @@
               const newHP = Math.min(updated.maxHP, updated.currentHP + item.heal);
               updated.currentHP = newHP;
               message = `${updated.name}のHPが${item.heal}回復した！`;
+            } else if (item.cure === 'all') {
+              updated.status = null;
+              message = `${updated.name}の状態異常が全て治った！`;
             } else if (item.cure) {
               if (updated.status === item.cure) {
                 updated.status = null;
@@ -542,10 +824,11 @@
             setPlayerMonster(updated);
             const newInventory = { ...inventory, [itemKey]: inventory[itemKey] - 1 };
             setInventory(newInventory);
-            saveGame(updated, currentLocation, money, newInventory, defeatedRivals);
+            saveGame(updated, currentLocation, money, newInventory, defeatedRivals, completedEvents);
             
             if (screen === 'battle' && message) {
               setBattleLog(prev => [...prev, message]);
+              setSelectedAction(null);
               setIsPlayerTurn(false);
               setTimeout(() => enemyAttack(), 1500);
             }
@@ -557,11 +840,14 @@
               return;
             }
             
+            setSelectedAction('run');
+            
             if (Math.random() < 0.5) {
               setBattleLog(prev => [...prev, 'うまく逃げ切れた！']);
               setTimeout(() => {
                 setScreen('town');
                 setIsAnimating(false);
+                setSelectedAction(null);
               }, 1500);
             } else {
               setBattleLog(prev => [...prev, '逃げられなかった！']);
@@ -578,29 +864,50 @@
             const newInventory = { ...inventory, [itemKey]: (inventory[itemKey] || 0) + 1 };
             setMoney(newMoney);
             setInventory(newInventory);
-            saveGame(playerMonster, currentLocation, newMoney, newInventory, defeatedRivals);
+            saveGame(playerMonster, currentLocation, newMoney, newInventory, defeatedRivals, completedEvents);
           };
 
           const healAtCenter = () => {
             const healed = { ...playerMonster, currentHP: playerMonster.maxHP, status: null };
             setPlayerMonster(healed);
-            saveGame(healed, currentLocation, money, inventory, defeatedRivals);
+            saveGame(healed, currentLocation, money, inventory, defeatedRivals, completedEvents);
           };
 
           const moveToLocation = (newLocation) => {
             setCurrentLocation(newLocation);
-            saveGame(playerMonster, newLocation, money, inventory, defeatedRivals);
+            saveGame(playerMonster, newLocation, money, inventory, defeatedRivals, completedEvents);
+            setShowMap(false);
             setScreen('town');
           };
 
+          const completeEvent = (eventId) => {
+            const event = WORLD_MAP.events.find(e => e.id === eventId);
+            if (!event || completedEvents.includes(eventId)) return;
+            
+            let newMoney = money;
+            let newInventory = { ...inventory };
+            
+            if (event.reward) {
+              if (event.reward.money) {
+                newMoney += event.reward.money;
+              }
+              if (event.reward.item) {
+                newInventory[event.reward.item] = (newInventory[event.reward.item] || 0) + event.reward.amount;
+              }
+            }
+            
+            const newCompletedEvents = [...completedEvents, eventId];
+            setMoney(newMoney);
+            setInventory(newInventory);
+            setCompletedEvents(newCompletedEvents);
+            saveGame(playerMonster, currentLocation, newMoney, newInventory, defeatedRivals, newCompletedEvents);
+          };
+
           const resetGame = () => {
-            localStorage.removeItem('monsterRPGSaveV2');
-            setPlayerMonster(null);
-            setMoney(3000);
-            setInventory({});
-            setCurrentLocation('start');
-            setDefeatedRivals([]);
-            setScreen('title');
+            if (window.confirm('本当にゲームをリセットしますか？\n全てのデータが削除されます。')) {
+              localStorage.removeItem('monsterQuestSaveV3');
+              window.location.reload();
+            }
           };
 
           const getHPBarColor = (current, max) => {
@@ -611,13 +918,12 @@
           };
 
           const getTypeColor = (type) => {
-            const colors = {
+            return {
               fire: '#F08030',
               water: '#6890F0',
               grass: '#78C850',
               normal: '#A8A878'
-            };
-            return colors[type];
+            }[type];
           };
 
           const getStatusIcon = (status) => {
@@ -626,6 +932,17 @@
             if (status === 'sleep') return '💤';
             return '';
           };
+
+          const getRarityColor = (rarity) => {
+            return {
+              common: '#9E9E9E',
+              uncommon: '#4CAF50',
+              rare: '#2196F3',
+              legendary: '#FFD700'
+            }[rarity];
+          };
+
+          // ============ 画面レンダリング ============
 
           // タイトル画面
           if (screen === 'title') {
@@ -636,127 +953,126 @@
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontFamily: 'Arial, sans-serif',
                 padding: '20px'
               }}>
-                <div className="fade-in" style={{ 
-                  background: 'white', 
-                  border: '4px solid #333',
-                  borderRadius: '20px',
-                  padding: '50px 40px',
+                <div className="fade-in card" style={{ 
+                  padding: '60px 40px',
                   textAlign: 'center',
                   maxWidth: '500px',
-                  boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+                  width: '100%'
                 }}>
-                  <h1 style={{ fontSize: '42px', margin: '0 0 10px 0', color: '#667eea', fontWeight: 'bold' }}>
-                    ⚡ モンスター ⚡<br/>アドベンチャー
+                  <div className="bounce" style={{ fontSize: '80px', marginBottom: '20px' }}>⚡</div>
+                  <h1 className="text-gradient" style={{ fontSize: '48px', margin: '0 0 15px 0', fontWeight: 'bold' }}>
+                    Monster<br/>Quest
                   </h1>
-                  <p style={{ fontSize: '16px', marginBottom: '40px', color: '#666' }}>
-                    壮大な冒険が今、始まる
+                  <p style={{ fontSize: '18px', marginBottom: '50px', color: '#666' }}>
+                    究極の冒険が今、始まる
                   </p>
                   <button
                     onClick={() => setScreen('select')}
+                    className="button-press"
                     style={{
                       background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                       color: 'white',
                       border: 'none',
-                      padding: '18px 50px',
-                      fontSize: '20px',
-                      borderRadius: '30px',
+                      padding: '20px 60px',
+                      fontSize: '22px',
+                      borderRadius: '50px',
                       cursor: 'pointer',
                       fontWeight: 'bold',
-                      boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
-                      transition: 'all 0.3s'
-                    }}
-                    onMouseOver={(e) => {
-                      e.target.style.transform = 'translateY(-2px)';
-                      e.target.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.6)';
-                    }}
-                    onMouseOut={(e) => {
-                      e.target.style.transform = 'translateY(0)';
-                      e.target.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.4)';
+                      boxShadow: '0 8px 20px rgba(102, 126, 234, 0.4)',
+                      transition: 'all 0.3s',
+                      width: '100%'
                     }}
                   >
-                    ぼうけんを はじめる
+                    冒険を始める
                   </button>
                 </div>
               </div>
             );
           }
 
-          // スターター選択画面
+          // スターター選択
           if (screen === 'select') {
+            const starters = [1, 4, 8, 11, 14, 18, 21, 24, 28];
+            
             return (
               <div style={{ 
                 minHeight: '100vh', 
-                background: 'linear-gradient(to bottom, #87CEEB, #E8F4F8)',
+                background: 'linear-gradient(to bottom, #a8edea 0%, #fed6e3 100%)',
                 padding: '20px',
-                fontFamily: 'Arial, sans-serif'
+                overflowY: 'auto'
               }}>
-                <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-                  <h2 style={{ textAlign: 'center', fontSize: '28px', marginBottom: '15px', color: '#333' }}>
-                    最初のパートナーを選ぼう！
-                  </h2>
-                  <p style={{ textAlign: 'center', fontSize: '16px', marginBottom: '35px', color: '#666' }}>
-                    きみと一緒に冒険するモンスターを選んでね
-                  </p>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '20px' }}>
-                    {[1, 4, 6, 9, 11, 14].map(id => {
+                <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+                  <div className="fade-in" style={{ textAlign: 'center', marginBottom: '40px' }}>
+                    <h2 style={{ fontSize: '32px', marginBottom: '15px', color: '#333' }}>
+                      運命のパートナーを選ぼう
+                    </h2>
+                    <p style={{ fontSize: '16px', color: '#666' }}>
+                      きみと一緒に冒険するモンスターを選んでね
+                    </p>
+                  </div>
+                  <div style={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', 
+                    gap: '20px',
+                    marginBottom: '20px'
+                  }}>
+                    {starters.map((id, index) => {
                       const monster = MONSTER_DATABASE[id];
                       return (
                         <div
                           key={id}
                           onClick={() => selectStarter(id)}
-                          className="fade-in"
+                          className="fade-in card button-press"
                           style={{
-                            background: 'white',
-                            border: '3px solid #333',
-                            borderRadius: '15px',
                             padding: '20px 15px',
                             cursor: 'pointer',
                             textAlign: 'center',
                             transition: 'all 0.3s',
-                            boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
+                            animationDelay: `${index * 0.1}s`
                           }}
-                          onMouseOver={(e) => {
-                            e.currentTarget.style.transform = 'translateY(-8px)';
-                            e.currentTarget.style.boxShadow = '0 8px 20px rgba(0,0,0,0.2)';
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.transform = 'translateY(-10px)';
+                            e.currentTarget.style.boxShadow = '0 15px 40px rgba(0,0,0,0.3)';
                           }}
-                          onMouseOut={(e) => {
+                          onMouseLeave={(e) => {
                             e.currentTarget.style.transform = 'translateY(0)';
-                            e.currentTarget.style.boxShadow = '0 4px 10px rgba(0,0,0,0.1)';
+                            e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.2)';
                           }}
                         >
-                          <div style={{
-                            width: '90px',
-                            height: '90px',
-                            margin: '0 auto 12px',
+                          <div className="monster-sprite" style={{
+                            width: '100px',
+                            height: '100px',
+                            margin: '0 auto 15px',
                             background: `linear-gradient(135deg, ${getTypeColor(monster.type)}dd, ${getTypeColor(monster.type)})`,
                             borderRadius: '50%',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            fontSize: '52px',
-                            border: '3px solid #333',
-                            boxShadow: '0 4px 8px rgba(0,0,0,0.15)'
+                            fontSize: '60px',
+                            border: `4px solid ${getRarityColor(monster.rarity)}`,
+                            boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
                           }}>
                             {monster.sprite}
                           </div>
-                          <h3 style={{ margin: '10px 0', fontSize: '19px', fontWeight: 'bold' }}>{monster.name}</h3>
+                          <h3 style={{ margin: '10px 0', fontSize: '18px', fontWeight: 'bold' }}>
+                            {monster.name}
+                          </h3>
                           <div style={{
                             display: 'inline-block',
                             padding: '4px 12px',
                             background: getTypeColor(monster.type),
                             color: 'white',
                             borderRadius: '15px',
-                            fontSize: '12px',
+                            fontSize: '11px',
                             fontWeight: 'bold',
-                            marginBottom: '10px'
+                            marginBottom: '8px'
                           }}>
                             {monster.type === 'fire' ? '🔥ほのお' : monster.type === 'water' ? '💧みず' : '🌿くさ'}
                           </div>
-                          <p style={{ margin: '8px 0', fontSize: '12px', color: '#666' }}>
-                            HP:{monster.baseHP} / 攻:{monster.baseAtk} / 防:{monster.baseDef}
+                          <p style={{ margin: '8px 0', fontSize: '11px', color: '#666' }}>
+                            HP:{monster.baseHP} 攻:{monster.baseAtk} 防:{monster.baseDef}
                           </p>
                         </div>
                       );
@@ -776,44 +1092,46 @@
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                padding: '20px',
-                fontFamily: 'Arial, sans-serif'
+                padding: '20px'
               }}>
-                <div className="fade-in" style={{
-                  background: 'white',
-                  border: '4px solid #333',
-                  borderRadius: '20px',
-                  padding: '40px',
-                  maxWidth: '600px',
+                <div className="fade-in card" style={{
+                  padding: '50px 40px',
+                  maxWidth: '650px',
+                  width: '100%',
                   textAlign: 'center'
                 }}>
-                  <h2 style={{ fontSize: '28px', marginBottom: '25px', color: '#667eea' }}>ようこそ！</h2>
-                  <p style={{ fontSize: '16px', lineHeight: '1.8', marginBottom: '15px' }}>
-                    きみは{playerMonster.name}と共に<br/>
-                    この世界を冒険することになった。
+                  <div style={{ fontSize: '80px', marginBottom: '30px' }}>🌟</div>
+                  <h2 className="text-gradient" style={{ fontSize: '32px', marginBottom: '30px' }}>
+                    冒険の始まり
+                  </h2>
+                  <p style={{ fontSize: '17px', lineHeight: '2', marginBottom: '20px', color: '#555' }}>
+                    きみは{playerMonster.name}と出会い、<br/>
+                    共に旅をする仲間となった。
                   </p>
-                  <p style={{ fontSize: '16px', lineHeight: '1.8', marginBottom: '15px' }}>
-                    各地の町を訪れ、道を進み、<br/>
-                    強力なライバルたちに挑もう！
+                  <p style={{ fontSize: '17px', lineHeight: '2', marginBottom: '20px', color: '#555' }}>
+                    世界には5つの町があり、<br/>
+                    それぞれに強力なトレーナーが待ち受けている。
                   </p>
-                  <p style={{ fontSize: '16px', lineHeight: '1.8', marginBottom: '30px' }}>
-                    最後にはチャンピオンが待っている。<br/>
-                    頂点を目指して、がんばれ！
+                  <p style={{ fontSize: '17px', lineHeight: '2', marginBottom: '40px', color: '#555' }}>
+                    様々な道を冒険し、モンスターを育て、<br/>
+                    最後にはチャンピオンに挑戦しよう！
                   </p>
                   <button
                     onClick={() => setScreen('town')}
+                    className="button-press"
                     style={{
                       background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                       color: 'white',
                       border: 'none',
-                      padding: '15px 40px',
-                      fontSize: '18px',
-                      borderRadius: '25px',
+                      padding: '18px 50px',
+                      fontSize: '20px',
+                      borderRadius: '50px',
                       cursor: 'pointer',
-                      fontWeight: 'bold'
+                      fontWeight: 'bold',
+                      width: '100%'
                     }}
                   >
-                    冒険を始める
+                    出発する
                   </button>
                 </div>
               </div>
@@ -822,143 +1140,215 @@
 
           // 町画面
           if (screen === 'town') {
-            const currentTown = STORY_DATA.towns.find(t => t.id === currentLocation);
-            const availableRoutes = STORY_DATA.routes.filter(r => r.from === currentLocation);
-            const availableRivals = STORY_DATA.rivals.filter(r => r.location === currentLocation && !defeatedRivals.includes(r.id));
+            const currentTown = WORLD_MAP.towns.find(t => t.id === currentLocation);
+            const availableRoutes = WORLD_MAP.routes.filter(r => r.from === currentLocation);
+            const availableRivals = WORLD_MAP.rivals.filter(r => r.location === currentLocation && !defeatedRivals.includes(r.id));
+            const availableEvents = WORLD_MAP.events.filter(e => e.location === currentLocation && !completedEvents.includes(e.id));
             
             return (
               <div style={{ 
                 minHeight: '100vh', 
-                background: 'linear-gradient(to bottom, #87CEEB, #E8F4F8)',
-                padding: '20px',
-                fontFamily: 'Arial, sans-serif'
+                background: 'linear-gradient(to bottom, #a8edea 0%, #fed6e3 100%)',
+                padding: '15px',
+                paddingBottom: '80px'
               }}>
                 <div style={{ maxWidth: '700px', margin: '0 auto' }}>
                   {/* ヘッダー */}
-                  <div style={{
-                    background: 'white',
-                    border: '3px solid #333',
-                    borderRadius: '15px',
-                    padding: '20px',
-                    marginBottom: '20px',
-                    boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
-                  }}>
-                    <h2 style={{ textAlign: 'center', fontSize: '24px', marginBottom: '15px', color: '#667eea' }}>
-                      📍 {currentTown.name}
-                    </h2>
-                    <div style={{ display: 'flex', justifyContent: 'space-around', fontSize: '16px' }}>
-                      <div>💰 {money}円</div>
-                      <div>{playerMonster.name} Lv.{playerMonster.level}</div>
-                      <div>HP: {playerMonster.currentHP}/{playerMonster.maxHP}</div>
+                  <div className="card" style={{ padding: '20px', marginBottom: '15px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px' }}>
+                      <h2 style={{ fontSize: '26px', margin: 0, color: '#667eea' }}>
+                        {currentTown.sprite} {currentTown.name}
+                      </h2>
+                      <button
+                        onClick={() => setShowOptions(true)}
+                        className="button-press"
+                        style={{
+                          background: '#9E9E9E',
+                          color: 'white',
+                          border: 'none',
+                          padding: '10px 20px',
+                          borderRadius: '20px',
+                          cursor: 'pointer',
+                          fontWeight: 'bold',
+                          fontSize: '14px'
+                        }}
+                      >
+                        ⚙️
+                      </button>
+                    </div>
+                    <p style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>
+                      {currentTown.description}
+                    </p>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', fontSize: '15px' }}>
+                      <div style={{ background: '#FFF9C4', padding: '12px', borderRadius: '10px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '20px', marginBottom: '5px' }}>💰</div>
+                        <div style={{ fontWeight: 'bold' }}>{money}円</div>
+                      </div>
+                      <div style={{ background: '#E1F5FE', padding: '12px', borderRadius: '10px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '20px', marginBottom: '5px' }}>{playerMonster.sprite}</div>
+                        <div style={{ fontWeight: 'bold' }}>Lv.{playerMonster.level}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* モンスター情報 */}
+                  <div className="card" style={{ padding: '20px', marginBottom: '15px' }}>
+                    <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+                      <div className="monster-sprite pulse" style={{
+                        width: '100px',
+                        height: '100px',
+                        background: `linear-gradient(135deg, ${getTypeColor(playerMonster.type)}dd, ${getTypeColor(playerMonster.type)})`,
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '70px',
+                        border: `4px solid ${getRarityColor(playerMonster.rarity)}`,
+                        boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
+                        flexShrink: 0
+                      }}>
+                        {playerMonster.sprite}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                          <h3 style={{ margin: 0, fontSize: '22px' }}>
+                            {playerMonster.name} {getStatusIcon(playerMonster.status)}
+                          </h3>
+                          <span style={{ fontSize: '16px', fontWeight: 'bold' }}>Lv.{playerMonster.level}</span>
+                        </div>
+                        <div className="hp-bar-container" style={{ marginBottom: '8px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '4px' }}>
+                            <span>HP</span>
+                            <span>{playerMonster.currentHP} / {playerMonster.maxHP}</span>
+                          </div>
+                          <div style={{ 
+                            width: '100%', 
+                            height: '22px', 
+                            background: '#e0e0e0', 
+                            borderRadius: '11px',
+                            overflow: 'hidden',
+                            border: '2px solid #999',
+                            position: 'relative'
+                          }}>
+                            <div style={{ 
+                              width: `${(playerMonster.currentHP / playerMonster.maxHP) * 100}%`,
+                              height: '100%',
+                              background: getHPBarColor(playerMonster.currentHP, playerMonster.maxHP),
+                              transition: 'width 0.5s ease-out',
+                              position: 'relative',
+                              overflow: 'hidden'
+                            }}>
+                              <div className="hp-bar-shine"></div>
+                            </div>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '10px', fontSize: '13px', color: '#666' }}>
+                          <span>攻:{playerMonster.attack}</span>
+                          <span>防:{playerMonster.defense}</span>
+                          <span>EXP:{playerMonster.exp}/{playerMonster.expToNext}</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
                   {/* モンスターセンター */}
-                  <div style={{
-                    background: 'white',
-                    border: '3px solid #333',
-                    borderRadius: '15px',
-                    padding: '20px',
-                    marginBottom: '15px'
-                  }}>
-                    <h3 style={{ marginBottom: '15px', fontSize: '18px' }}>🏥 モンスターセンター</h3>
+                  <div className="card" style={{ padding: '20px', marginBottom: '15px' }}>
+                    <h3 style={{ marginBottom: '12px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span>🏥</span> モンスターセンター
+                    </h3>
                     <button
                       onClick={healAtCenter}
                       disabled={playerMonster.currentHP === playerMonster.maxHP && !playerMonster.status}
+                      className="button-press"
                       style={{
                         width: '100%',
-                        background: playerMonster.currentHP === playerMonster.maxHP && !playerMonster.status ? '#ccc' : '#FF6B9D',
+                        background: playerMonster.currentHP === playerMonster.maxHP && !playerMonster.status 
+                          ? '#ccc' 
+                          : 'linear-gradient(135deg, #FF6B9D, #C06C84)',
                         color: 'white',
                         border: 'none',
-                        padding: '12px',
+                        padding: '14px',
                         fontSize: '16px',
-                        borderRadius: '10px',
+                        borderRadius: '12px',
                         cursor: playerMonster.currentHP === playerMonster.maxHP && !playerMonster.status ? 'not-allowed' : 'pointer',
                         fontWeight: 'bold'
                       }}
                     >
-                      無料で全回復する
+                      無料で全回復
                     </button>
                   </div>
 
-                  {/* ショップ */}
-                  {currentTown.shop && (
-                    <div style={{
-                      background: 'white',
-                      border: '3px solid #333',
-                      borderRadius: '15px',
-                      padding: '20px',
-                      marginBottom: '15px'
-                    }}>
-                      <h3 style={{ marginBottom: '15px', fontSize: '18px' }}>🏪 ショップ</h3>
-                      <div style={{ display: 'grid', gap: '10px' }}>
-                        {Object.entries(ITEMS).map(([key, item]) => (
-                          <div key={key} style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            padding: '10px',
-                            background: '#f5f5f5',
-                            borderRadius: '8px'
-                          }}>
-                            <div>
-                              <div style={{ fontWeight: 'bold' }}>{item.name} - {item.price}円</div>
-                              <div style={{ fontSize: '12px', color: '#666' }}>{item.description}</div>
-                              <div style={{ fontSize: '12px', color: '#999' }}>所持: {inventory[key] || 0}個</div>
-                            </div>
-                            <button
-                              onClick={() => buyItem(key)}
-                              disabled={money < item.price}
-                              style={{
-                                background: money < item.price ? '#ccc' : '#4CAF50',
-                                color: 'white',
-                                border: 'none',
-                                padding: '8px 15px',
-                                borderRadius: '8px',
-                                cursor: money < item.price ? 'not-allowed' : 'pointer',
-                                fontWeight: 'bold',
-                                fontSize: '14px'
-                              }}
-                            >
-                              購入
-                            </button>
+                  {/* イベント */}
+                  {availableEvents.length > 0 && (
+                    <div className="card slide-in" style={{ padding: '20px', marginBottom: '15px', background: 'linear-gradient(135deg, #FFF9C4, #FFEB3B)' }}>
+                      <h3 style={{ marginBottom: '12px', fontSize: '18px' }}>✨ イベント</h3>
+                      {availableEvents.map(event => (
+                        <div key={event.id} style={{
+                          background: 'white',
+                          padding: '15px',
+                          borderRadius: '12px',
+                          marginBottom: '10px'
+                        }}>
+                          <div style={{ fontSize: '40px', textAlign: 'center', marginBottom: '10px' }}>
+                            {event.sprite}
                           </div>
-                        ))}
-                      </div>
+                          <p style={{ fontSize: '14px', marginBottom: '12px', lineHeight: '1.6' }}>
+                            <strong>{event.npc}:</strong> {event.message}
+                          </p>
+                          <button
+                            onClick={() => completeEvent(event.id)}
+                            className="button-press"
+                            style={{
+                              width: '100%',
+                              background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                              color: 'white',
+                              border: 'none',
+                              padding: '12px',
+                              borderRadius: '10px',
+                              cursor: 'pointer',
+                              fontWeight: 'bold'
+                            }}
+                          >
+                            話しかける
+                          </button>
+                        </div>
+                      ))}
                     </div>
                   )}
 
-                  {/* ライバル戦 */}
+                  {/* ライバル */}
                   {availableRivals.length > 0 && (
-                    <div style={{
-                      background: 'linear-gradient(135deg, #FFA07A, #FF6347)',
-                      border: '3px solid #333',
-                      borderRadius: '15px',
-                      padding: '20px',
+                    <div className="card" style={{ 
+                      padding: '20px', 
                       marginBottom: '15px',
+                      background: 'linear-gradient(135deg, #FFA07A, #FF6347)',
                       color: 'white'
                     }}>
-                      <h3 style={{ marginBottom: '15px', fontSize: '18px' }}>⚔️ トレーナー戦</h3>
+                      <h3 style={{ marginBottom: '15px', fontSize: '18px' }}>⚔️ バトル</h3>
                       {availableRivals.map(rival => (
                         <button
                           key={rival.id}
                           onClick={() => startRivalBattle(rival.id)}
+                          className="button-press"
                           style={{
                             width: '100%',
-                            background: 'rgba(255,255,255,0.3)',
+                            background: 'rgba(255,255,255,0.25)',
                             color: 'white',
-                            border: '2px solid white',
-                            padding: '15px',
+                            border: '3px solid white',
+                            padding: '18px',
                             fontSize: '16px',
-                            borderRadius: '10px',
+                            borderRadius: '15px',
                             cursor: 'pointer',
                             fontWeight: 'bold',
-                            marginBottom: '10px'
+                            marginBottom: '10px',
+                            backdropFilter: 'blur(10px)'
                           }}
                         >
-                          <div style={{ fontSize: '20px', marginBottom: '5px' }}>{rival.sprite}</div>
-                          {rival.name} に挑戦！<br/>
-                          <span style={{ fontSize: '13px' }}>賞金: {rival.reward}円</span>
+                          <div style={{ fontSize: '40px', marginBottom: '8px' }}>{rival.sprite}</div>
+                          <div>{rival.name}</div>
+                          <div style={{ fontSize: '13px', opacity: 0.9, marginTop: '5px' }}>
+                            賞金: {rival.reward}円
+                          </div>
                         </button>
                       ))}
                     </div>
@@ -966,96 +1356,321 @@
 
                   {/* 道路 */}
                   {availableRoutes.length > 0 && (
-                    <div style={{
-                      background: 'white',
-                      border: '3px solid #333',
-                      borderRadius: '15px',
-                      padding: '20px',
-                      marginBottom: '15px'
-                    }}>
+                    <div className="card" style={{ padding: '20px', marginBottom: '15px' }}>
                       <h3 style={{ marginBottom: '15px', fontSize: '18px' }}>🛣️ 冒険する</h3>
                       {availableRoutes.map(route => (
                         <button
                           key={route.id}
                           onClick={() => startWildBattle(route.id)}
+                          className="button-press"
                           style={{
                             width: '100%',
                             background: 'linear-gradient(135deg, #78C850, #5CA935)',
                             color: 'white',
                             border: 'none',
-                            padding: '15px',
+                            padding: '18px',
                             fontSize: '16px',
-                            borderRadius: '10px',
+                            borderRadius: '15px',
                             cursor: 'pointer',
                             fontWeight: 'bold',
                             marginBottom: '10px',
-                            boxShadow: '0 4px 8px rgba(0,0,0,0.15)'
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
                           }}
                         >
-                          {route.name} へ進む<br/>
-                          <span style={{ fontSize: '13px', opacity: 0.9 }}>
-                            (Lv.{route.minLevel}〜{route.maxLevel} のモンスター)
-                          </span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'center' }}>
+                            <span style={{ fontSize: '24px' }}>{route.sprite}</span>
+                            <span>{route.name}</span>
+                          </div>
+                          <div style={{ fontSize: '13px', opacity: 0.9, marginTop: '5px' }}>
+                            Lv.{route.minLevel}〜{route.maxLevel}
+                          </div>
                         </button>
                       ))}
                     </div>
                   )}
 
-                  {/* 移動 */}
+                  {/* 固定ボタン */}
                   <div style={{
+                    position: 'fixed',
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
                     background: 'white',
-                    border: '3px solid #333',
-                    borderRadius: '15px',
-                    padding: '20px',
-                    marginBottom: '15px'
+                    borderTop: '2px solid #e0e0e0',
+                    padding: '15px',
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: '10px',
+                    boxShadow: '0 -4px 10px rgba(0,0,0,0.1)'
                   }}>
-                    <h3 style={{ marginBottom: '15px', fontSize: '18px' }}>🚶 町へ移動</h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                      {STORY_DATA.towns.filter(t => t.id !== currentLocation).map(town => {
-                        const canVisit = 
-                          (currentLocation === 'start' && town.id === 'forest' && defeatedRivals.includes('rival1')) ||
-                          (currentLocation === 'forest' && (town.id === 'start' || (town.id === 'mountain' && defeatedRivals.includes('rival2')))) ||
-                          (currentLocation === 'mountain' && (town.id === 'forest' || (town.id === 'final' && defeatedRivals.includes('rival3')))) ||
-                          (currentLocation === 'final' && town.id === 'mountain');
-                        
-                        return (
-                          <button
-                            key={town.id}
-                            onClick={() => moveToLocation(town.id)}
-                            disabled={!canVisit}
-                            style={{
-                              background: canVisit ? '#4A90E2' : '#ccc',
-                              color: 'white',
-                              border: 'none',
-                              padding: '12px',
-                              fontSize: '14px',
-                              borderRadius: '8px',
-                              cursor: canVisit ? 'pointer' : 'not-allowed',
-                              fontWeight: 'bold'
-                            }}
-                          >
-                            {town.name}
-                          </button>
-                        );
-                      })}
+                    <button
+                      onClick={() => setShowMap(true)}
+                      className="button-press"
+                      style={{
+                        background: 'linear-gradient(135deg, #4A90E2, #357ABD)',
+                        color: 'white',
+                        border: 'none',
+                        padding: '14px',
+                        borderRadius: '12px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold',
+                        fontSize: '15px'
+                      }}
+                    >
+                      🗺️ マップ
+                    </button>
+                    <button
+                      onClick={() => setScreen('shop')}
+                      className="button-press"
+                      style={{
+                        background: 'linear-gradient(135deg, #FFA726, #FB8C00)',
+                        color: 'white',
+                        border: 'none',
+                        padding: '14px',
+                        borderRadius: '12px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold',
+                        fontSize: '15px'
+                      }}
+                    >
+                      🏪 ショップ
+                    </button>
+                  </div>
+                </div>
+
+                {/* マップモーダル */}
+                {showMap && (
+                  <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0,0,0,0.8)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1000,
+                    padding: '20px'
+                  }} onClick={() => setShowMap(false)}>
+                    <div className="card fade-in" style={{ 
+                      padding: '30px',
+                      maxWidth: '600px',
+                      width: '100%',
+                      maxHeight: '80vh',
+                      overflowY: 'auto'
+                    }} onClick={(e) => e.stopPropagation()}>
+                      <h2 style={{ marginBottom: '25px', textAlign: 'center', fontSize: '24px' }}>
+                        🗺️ ワールドマップ
+                      </h2>
+                      <div style={{ display: 'grid', gap: '15px' }}>
+                        {WORLD_MAP.towns.map(town => {
+                          const canVisit = 
+                            town.id === currentLocation ||
+                            (town.id === 'forest' && defeatedRivals.includes('rival1')) ||
+                            (town.id === 'lake' && defeatedRivals.includes('rival2')) ||
+                            (town.id === 'mountain' && defeatedRivals.includes('rival3')) ||
+                            (town.id === 'castle' && defeatedRivals.includes('champion'));
+                          
+                          return (
+                            <button
+                              key={town.id}
+                              onClick={() => canVisit ? moveToLocation(town.id) : null}
+                              disabled={!canVisit}
+                              className={canVisit ? 'button-press map-tile' : ''}
+                              style={{
+                                background: canVisit 
+                                  ? (town.id === currentLocation 
+                                    ? 'linear-gradient(135deg, #667eea, #764ba2)' 
+                                    : 'linear-gradient(135deg, #4CAF50, #45a049)')
+                                  : '#e0e0e0',
+                                color: canVisit ? 'white' : '#999',
+                                border: 'none',
+                                padding: '20px',
+                                borderRadius: '15px',
+                                cursor: canVisit ? 'pointer' : 'not-allowed',
+                                textAlign: 'left',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '15px'
+                              }}
+                            >
+                              <div style={{ fontSize: '40px' }}>{town.sprite}</div>
+                              <div>
+                                <div style={{ fontWeight: 'bold', fontSize: '18px', marginBottom: '5px' }}>
+                                  {town.name} {town.id === currentLocation && '(現在地)'}
+                                </div>
+                                <div style={{ fontSize: '13px', opacity: 0.9 }}>
+                                  {town.description}
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <button
+                        onClick={() => setShowMap(false)}
+                        className="button-press"
+                        style={{
+                          width: '100%',
+                          marginTop: '20px',
+                          background: '#999',
+                          color: 'white',
+                          border: 'none',
+                          padding: '14px',
+                          borderRadius: '12px',
+                          cursor: 'pointer',
+                          fontWeight: 'bold'
+                        }}
+                      >
+                        閉じる
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* オプションモーダル */}
+                {showOptions && (
+                  <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0,0,0,0.8)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1000,
+                    padding: '20px'
+                  }} onClick={() => setShowOptions(false)}>
+                    <div className="card fade-in" style={{ 
+                      padding: '30px',
+                      maxWidth: '400px',
+                      width: '100%'
+                    }} onClick={(e) => e.stopPropagation()}>
+                      <h2 style={{ marginBottom: '25px', textAlign: 'center', fontSize: '24px' }}>
+                        ⚙️ オプション
+                      </h2>
+                      <button
+                        onClick={resetGame}
+                        className="button-press"
+                        style={{
+                          width: '100%',
+                          background: 'linear-gradient(135deg, #EF5350, #E53935)',
+                          color: 'white',
+                          border: 'none',
+                          padding: '16px',
+                          borderRadius: '12px',
+                          cursor: 'pointer',
+                          fontWeight: 'bold',
+                          fontSize: '16px',
+                          marginBottom: '15px'
+                        }}
+                      >
+                        🔄 ゲームをリセット
+                      </button>
+                      <button
+                        onClick={() => setShowOptions(false)}
+                        className="button-press"
+                        style={{
+                          width: '100%',
+                          background: '#999',
+                          color: 'white',
+                          border: 'none',
+                          padding: '14px',
+                          borderRadius: '12px',
+                          cursor: 'pointer',
+                          fontWeight: 'bold'
+                        }}
+                      >
+                        閉じる
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          }
+
+          // ショップ画面
+          if (screen === 'shop') {
+            return (
+              <div style={{ 
+                minHeight: '100vh', 
+                background: 'linear-gradient(to bottom, #a8edea 0%, #fed6e3 100%)',
+                padding: '20px',
+                paddingBottom: '100px'
+              }}>
+                <div style={{ maxWidth: '700px', margin: '0 auto' }}>
+                  <div className="card" style={{ padding: '25px', marginBottom: '20px' }}>
+                    <h2 style={{ marginBottom: '10px', fontSize: '26px', textAlign: 'center' }}>
+                      🏪 ショップ
+                    </h2>
+                    <p style={{ textAlign: 'center', color: '#666', marginBottom: '20px' }}>
+                      所持金: <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#FFA726' }}>{money}円</span>
+                    </p>
+                    <div style={{ display: 'grid', gap: '12px' }}>
+                      {Object.entries(ITEMS).map(([key, item]) => (
+                        <div key={key} className="card" style={{
+                          padding: '15px',
+                          background: '#f5f5f5'
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontWeight: 'bold', fontSize: '16px', marginBottom: '4px' }}>
+                                {item.name}
+                              </div>
+                              <div style={{ fontSize: '13px', color: '#666', marginBottom: '4px' }}>
+                                {item.description}
+                              </div>
+                              <div style={{ fontSize: '14px', color: '#FFA726', fontWeight: 'bold' }}>
+                                {item.price}円
+                              </div>
+                              <div style={{ fontSize: '12px', color: '#999', marginTop: '4px' }}>
+                                所持: {inventory[key] || 0}個
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => buyItem(key)}
+                              disabled={money < item.price}
+                              className="button-press"
+                              style={{
+                                background: money < item.price ? '#ccc' : 'linear-gradient(135deg, #4CAF50, #45a049)',
+                                color: 'white',
+                                border: 'none',
+                                padding: '12px 20px',
+                                borderRadius: '10px',
+                                cursor: money < item.price ? 'not-allowed' : 'pointer',
+                                fontWeight: 'bold',
+                                fontSize: '14px',
+                                marginLeft: '15px'
+                              }}
+                            >
+                              購入
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
 
-                  {/* リセット */}
                   <button
-                    onClick={resetGame}
+                    onClick={() => setScreen('town')}
+                    className="button-press"
                     style={{
                       width: '100%',
                       background: '#999',
                       color: 'white',
                       border: 'none',
-                      padding: '12px',
-                      fontSize: '14px',
-                      borderRadius: '10px',
-                      cursor: 'pointer'
+                      padding: '16px',
+                      borderRadius: '12px',
+                      cursor: 'pointer',
+                      fontWeight: 'bold',
+                      fontSize: '16px'
                     }}
                   >
-                    ゲームをリセット
+                    町に戻る
                   </button>
                 </div>
               </div>
@@ -1068,55 +1683,61 @@
               <div style={{ 
                 minHeight: '100vh', 
                 background: 'linear-gradient(to bottom, #FFE5B4, #FFD700)',
-                padding: '20px',
-                fontFamily: 'Arial, sans-serif'
+                padding: '15px',
+                paddingBottom: '20px'
               }}>
                 <div style={{ maxWidth: '800px', margin: '0 auto' }}>
                   {/* 敵モンスター */}
                   <div style={{ 
                     display: 'flex', 
                     justifyContent: 'flex-end',
-                    marginBottom: '40px',
-                    paddingRight: '30px'
+                    marginBottom: '30px',
+                    paddingRight: '20px'
                   }}>
-                    <div>
-                      <div style={{
-                        background: 'white',
-                        border: '3px solid #333',
-                        borderRadius: '15px',
+                    <div className="fade-in">
+                      <div className="card" style={{
                         padding: '15px',
                         marginBottom: '15px',
                         minWidth: '280px',
-                        boxShadow: '0 4px 10px rgba(0,0,0,0.15)'
+                        boxShadow: '0 6px 15px rgba(0,0,0,0.2)'
                       }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', alignItems: 'center' }}>
-                          <span style={{ fontWeight: 'bold', fontSize: '18px' }}>{enemyMonster.name} {getStatusIcon(enemyMonster.status)}</span>
+                          <span style={{ fontWeight: 'bold', fontSize: '18px' }}>
+                            {enemyMonster.name} {getStatusIcon(enemyMonster.status)}
+                          </span>
                           <span style={{ fontSize: '16px' }}>Lv.{enemyMonster.level}</span>
                         </div>
                         <div style={{ marginBottom: '5px', display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
                           <span>HP:</span>
                           <span>{enemyMonster.currentHP} / {enemyMonster.maxHP}</span>
                         </div>
-                        <div style={{ 
+                        <div className="hp-bar-container" style={{ 
                           width: '100%', 
                           height: '24px', 
                           background: '#e0e0e0', 
                           borderRadius: '12px',
                           overflow: 'hidden',
-                          border: '2px solid #999'
+                          border: '2px solid #999',
+                          position: 'relative'
                         }}>
                           <div style={{ 
                             width: `${(enemyMonster.currentHP / enemyMonster.maxHP) * 100}%`,
                             height: '100%',
                             background: getHPBarColor(enemyMonster.currentHP, enemyMonster.maxHP),
-                            transition: 'width 0.5s ease-out'
-                          }} />
+                            transition: 'width 0.5s ease-out',
+                            position: 'relative',
+                            overflow: 'hidden'
+                          }}>
+                            <div className="hp-bar-shine"></div>
+                          </div>
                         </div>
                       </div>
-                      <div style={{
+                      <div className={damageFlash === 'enemy' ? 'shake' : ''} style={{
                         width: '180px',
                         height: '180px',
-                        background: damageFlash === 'enemy' ? 'radial-gradient(circle, #ff0000 0%, #ff000080 100%)' : `linear-gradient(135deg, ${getTypeColor(enemyMonster.type)}dd, ${getTypeColor(enemyMonster.type)})`,
+                        background: damageFlash === 'enemy' 
+                          ? 'radial-gradient(circle, #ff0000 0%, #ff000080 100%)' 
+                          : `linear-gradient(135deg, ${getTypeColor(enemyMonster.type)}dd, ${getTypeColor(enemyMonster.type)})`,
                         borderRadius: '50%',
                         display: 'flex',
                         alignItems: 'center',
@@ -1124,8 +1745,10 @@
                         fontSize: '120px',
                         transition: 'all 0.3s',
                         margin: '0 auto',
-                        border: '4px solid #333',
-                        boxShadow: damageFlash === 'enemy' ? '0 0 30px rgba(255,0,0,0.8)' : '0 8px 16px rgba(0,0,0,0.2)'
+                        border: `4px solid ${getRarityColor(enemyMonster.rarity)}`,
+                        boxShadow: damageFlash === 'enemy' 
+                          ? '0 0 40px rgba(255,0,0,0.9)' 
+                          : '0 8px 20px rgba(0,0,0,0.3)'
                       }}>
                         {enemyMonster.sprite}
                       </div>
@@ -1136,14 +1759,16 @@
                   <div style={{ 
                     display: 'flex', 
                     justifyContent: 'flex-start',
-                    marginBottom: '30px',
-                    paddingLeft: '30px'
+                    marginBottom: '25px',
+                    paddingLeft: '20px'
                   }}>
-                    <div>
-                      <div style={{
+                    <div className="fade-in">
+                      <div className={damageFlash === 'player' ? 'shake' : ''} style={{
                         width: '180px',
                         height: '180px',
-                        background: damageFlash === 'player' ? 'radial-gradient(circle, #ff0000 0%, #ff000080 100%)' : `linear-gradient(135deg, ${getTypeColor(playerMonster.type)}dd, ${getTypeColor(playerMonster.type)})`,
+                        background: damageFlash === 'player' 
+                          ? 'radial-gradient(circle, #ff0000 0%, #ff000080 100%)' 
+                          : `linear-gradient(135deg, ${getTypeColor(playerMonster.type)}dd, ${getTypeColor(playerMonster.type)})`,
                         borderRadius: '50%',
                         display: 'flex',
                         alignItems: 'center',
@@ -1151,42 +1776,48 @@
                         fontSize: '120px',
                         transition: 'all 0.3s',
                         margin: '0 auto 15px',
-                        border: '4px solid #333',
-                        boxShadow: damageFlash === 'player' ? '0 0 30px rgba(255,0,0,0.8)' : '0 8px 16px rgba(0,0,0,0.2)'
+                        border: `4px solid ${getRarityColor(playerMonster.rarity)}`,
+                        boxShadow: damageFlash === 'player' 
+                          ? '0 0 40px rgba(255,0,0,0.9)' 
+                          : '0 8px 20px rgba(0,0,0,0.3)'
                       }}>
                         {playerMonster.sprite}
                       </div>
-                      <div style={{
-                        background: 'white',
-                        border: '3px solid #333',
-                        borderRadius: '15px',
+                      <div className="card" style={{
                         padding: '15px',
                         minWidth: '280px',
-                        boxShadow: '0 4px 10px rgba(0,0,0,0.15)'
+                        boxShadow: '0 6px 15px rgba(0,0,0,0.2)'
                       }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', alignItems: 'center' }}>
-                          <span style={{ fontWeight: 'bold', fontSize: '18px' }}>{playerMonster.name} {getStatusIcon(playerMonster.status)}</span>
+                          <span style={{ fontWeight: 'bold', fontSize: '18px' }}>
+                            {playerMonster.name} {getStatusIcon(playerMonster.status)}
+                          </span>
                           <span style={{ fontSize: '16px' }}>Lv.{playerMonster.level}</span>
                         </div>
                         <div style={{ marginBottom: '5px', display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
                           <span>HP:</span>
                           <span>{playerMonster.currentHP} / {playerMonster.maxHP}</span>
                         </div>
-                        <div style={{ 
+                        <div className="hp-bar-container" style={{ 
                           width: '100%', 
                           height: '24px', 
                           background: '#e0e0e0', 
                           borderRadius: '12px',
                           overflow: 'hidden',
                           marginBottom: '10px',
-                          border: '2px solid #999'
+                          border: '2px solid #999',
+                          position: 'relative'
                         }}>
                           <div style={{ 
                             width: `${(playerMonster.currentHP / playerMonster.maxHP) * 100}%`,
                             height: '100%',
                             background: getHPBarColor(playerMonster.currentHP, playerMonster.maxHP),
-                            transition: 'width 0.5s ease-out'
-                          }} />
+                            transition: 'width 0.5s ease-out',
+                            position: 'relative',
+                            overflow: 'hidden'
+                          }}>
+                            <div className="hp-bar-shine"></div>
+                          </div>
                         </div>
                         <div style={{ marginBottom: '5px', display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
                           <span>EXP:</span>
@@ -1212,10 +1843,7 @@
                   </div>
 
                   {/* バトルログ */}
-                  <div style={{
-                    background: 'white',
-                    border: '3px solid #333',
-                    borderRadius: '15px',
+                  <div ref={battleLogRef} className="card" style={{
                     padding: '20px',
                     marginBottom: '20px',
                     minHeight: '130px',
@@ -1223,10 +1851,10 @@
                     overflowY: 'auto',
                     fontSize: '15px',
                     lineHeight: '1.8',
-                    boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
                   }}>
-                    {battleLog.slice(-5).map((log, idx) => (
-                      <p key={idx} style={{ 
+                    {battleLog.slice(-6).map((log, idx) => (
+                      <p key={idx} className="fade-in" style={{ 
                         margin: '6px 0',
                         fontWeight: log.includes('効果は') || log.includes('ダメージ') ? 'bold' : 'normal',
                         color: log.includes('効果は抜群') ? '#E74C3C' : log.includes('いまひとつ') ? '#95A5A6' : '#333'
@@ -1234,111 +1862,159 @@
                     ))}
                   </div>
 
-                  {/* コマンドメニュー */}
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: '1fr 1fr',
-                    gap: '15px',
-                    marginBottom: '15px'
-                  }}>
-                    {playerMonster.moves.map((move, idx) => {
-                      const moveTypeColor = move.type === 'fire' ? '#F08030' : 
-                                           move.type === 'water' ? '#6890F0' : 
-                                           move.type === 'grass' ? '#78C850' : '#A8A878';
-                      return (
-                        <button
-                          key={idx}
-                          onClick={() => playerAttack(move)}
-                          disabled={!isPlayerTurn || isAnimating}
-                          style={{
-                            background: !isPlayerTurn || isAnimating ? '#ccc' : 
-                                       `linear-gradient(135deg, ${moveTypeColor} 0%, ${moveTypeColor}dd 100%)`,
-                            color: 'white',
-                            border: '3px solid #333',
-                            padding: '18px',
-                            fontSize: '15px',
-                            borderRadius: '12px',
-                            cursor: !isPlayerTurn || isAnimating ? 'not-allowed' : 'pointer',
-                            fontWeight: 'bold',
-                            textAlign: 'left',
-                            boxShadow: !isPlayerTurn || isAnimating ? 'none' : '0 4px 8px rgba(0,0,0,0.2)',
-                            transition: 'all 0.2s'
-                          }}
-                        >
-                          <div style={{ fontSize: '17px', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span>{move.type === 'fire' ? '🔥' : move.type === 'water' ? '💧' : move.type === 'grass' ? '🌿' : '⭐'}</span>
-                            <span>{move.name}</span>
-                          </div>
-                          <div style={{ fontSize: '13px', opacity: 0.9 }}>
-                            威力: {move.power || '−'}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
+                  {/* アクション選択 */}
+                  {!selectedAction && (
+                    <div className="fade-in" style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      gap: '15px',
+                      marginBottom: '15px'
+                    }}>
+                      <button
+                        onClick={() => setSelectedAction('fight')}
+                        disabled={!isPlayerTurn || isAnimating}
+                        className="button-press"
+                        style={{
+                          background: !isPlayerTurn || isAnimating 
+                            ? '#ccc' 
+                            : 'linear-gradient(135deg, #EF5350, #E53935)',
+                          color: 'white',
+                          border: 'none',
+                          padding: '20px',
+                          fontSize: '18px',
+                          borderRadius: '15px',
+                          cursor: !isPlayerTurn || isAnimating ? 'not-allowed' : 'pointer',
+                          fontWeight: 'bold',
+                          boxShadow: !isPlayerTurn || isAnimating ? 'none' : '0 4px 10px rgba(0,0,0,0.2)'
+                        }}
+                      >
+                        ⚔️ たたかう
+                      </button>
+                      <button
+                        onClick={() => setScreen('battle-item')}
+                        disabled={!isPlayerTurn || isAnimating}
+                        className="button-press"
+                        style={{
+                          background: !isPlayerTurn || isAnimating 
+                            ? '#ccc' 
+                            : 'linear-gradient(135deg, #FFA726, #FB8C00)',
+                          color: 'white',
+                          border: 'none',
+                          padding: '20px',
+                          fontSize: '18px',
+                          borderRadius: '15px',
+                          cursor: !isPlayerTurn || isAnimating ? 'not-allowed' : 'pointer',
+                          fontWeight: 'bold',
+                          boxShadow: !isPlayerTurn || isAnimating ? 'none' : '0 4px 10px rgba(0,0,0,0.2)'
+                        }}
+                      >
+                        💼 どうぐ
+                      </button>
+                      <button
+                        onClick={runAway}
+                        disabled={!isPlayerTurn || isAnimating || battleType !== 'wild'}
+                        className="button-press"
+                        style={{
+                          background: !isPlayerTurn || isAnimating || battleType !== 'wild' 
+                            ? '#ccc' 
+                            : 'linear-gradient(135deg, #9E9E9E, #757575)',
+                          color: 'white',
+                          border: 'none',
+                          padding: '20px',
+                          fontSize: '18px',
+                          borderRadius: '15px',
+                          cursor: !isPlayerTurn || isAnimating || battleType !== 'wild' ? 'not-allowed' : 'pointer',
+                          fontWeight: 'bold',
+                          gridColumn: 'span 2',
+                          boxShadow: !isPlayerTurn || isAnimating || battleType !== 'wild' ? 'none' : '0 4px 10px rgba(0,0,0,0.2)'
+                        }}
+                      >
+                        🏃 にげる
+                      </button>
+                    </div>
+                  )}
 
-                  {/* どうぐ・にげる */}
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: '1fr 1fr',
-                    gap: '15px'
-                  }}>
-                    <button
-                      onClick={() => setScreen('battle-item')}
-                      disabled={!isPlayerTurn || isAnimating}
-                      style={{
-                        background: !isPlayerTurn || isAnimating ? '#ccc' : '#FFA726',
-                        color: 'white',
-                        border: '3px solid #333',
-                        padding: '15px',
-                        fontSize: '16px',
-                        borderRadius: '12px',
-                        cursor: !isPlayerTurn || isAnimating ? 'not-allowed' : 'pointer',
-                        fontWeight: 'bold'
-                      }}
-                    >
-                      💼 どうぐ
-                    </button>
-                    <button
-                      onClick={runAway}
-                      disabled={!isPlayerTurn || isAnimating || battleType !== 'wild'}
-                      style={{
-                        background: !isPlayerTurn || isAnimating || battleType !== 'wild' ? '#ccc' : '#EF5350',
-                        color: 'white',
-                        border: '3px solid #333',
-                        padding: '15px',
-                        fontSize: '16px',
-                        borderRadius: '12px',
-                        cursor: !isPlayerTurn || isAnimating || battleType !== 'wild' ? 'not-allowed' : 'pointer',
-                        fontWeight: 'bold'
-                      }}
-                    >
-                      🏃 にげる
-                    </button>
-                  </div>
+                  {/* 技選択 */}
+                  {selectedAction === 'fight' && (
+                    <div className="slide-in" style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      gap: '12px',
+                      marginBottom: '15px'
+                    }}>
+                      {playerMonster.moves.map((move, idx) => {
+                        const moveTypeColor = getTypeColor(move.type);
+                        return (
+                          <button
+                            key={idx}
+                            onClick={() => playerAttack(move)}
+                            disabled={!isPlayerTurn || isAnimating}
+                            className="button-press"
+                            style={{
+                              background: !isPlayerTurn || isAnimating 
+                                ? '#ccc' 
+                                : `linear-gradient(135deg, ${moveTypeColor} 0%, ${moveTypeColor}dd 100%)`,
+                              color: 'white',
+                              border: 'none',
+                              padding: '16px',
+                              fontSize: '15px',
+                              borderRadius: '12px',
+                              cursor: !isPlayerTurn || isAnimating ? 'not-allowed' : 'pointer',
+                              fontWeight: 'bold',
+                              textAlign: 'left',
+                              boxShadow: !isPlayerTurn || isAnimating ? 'none' : '0 4px 8px rgba(0,0,0,0.2)',
+                              transition: 'all 0.2s'
+                            }}
+                          >
+                            <div style={{ fontSize: '16px', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span>{move.type === 'fire' ? '🔥' : move.type === 'water' ? '💧' : move.type === 'grass' ? '🌿' : '⭐'}</span>
+                              <span>{move.name}</span>
+                            </div>
+                            <div style={{ fontSize: '13px', opacity: 0.9 }}>
+                              威力: {move.power || '−'}
+                            </div>
+                          </button>
+                        );
+                      })}
+                      <button
+                        onClick={() => setSelectedAction(null)}
+                        className="button-press"
+                        style={{
+                          background: '#999',
+                          color: 'white',
+                          border: 'none',
+                          padding: '16px',
+                          borderRadius: '12px',
+                          cursor: 'pointer',
+                          fontWeight: 'bold',
+                          gridColumn: 'span 2'
+                        }}
+                      >
+                        ← もどる
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             );
           }
 
-          // バトル中のアイテム画面
+          // アイテム使用画面
           if (screen === 'battle-item') {
             return (
               <div style={{ 
                 minHeight: '100vh', 
                 background: 'linear-gradient(to bottom, #FFE5B4, #FFD700)',
-                padding: '20px',
-                fontFamily: 'Arial, sans-serif'
+                padding: '20px'
               }}>
                 <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-                  <div style={{
-                    background: 'white',
-                    border: '3px solid #333',
-                    borderRadius: '15px',
+                  <div className="card fade-in" style={{
                     padding: '25px',
-                    boxShadow: '0 4px 10px rgba(0,0,0,0.15)'
+                    boxShadow: '0 6px 15px rgba(0,0,0,0.2)'
                   }}>
-                    <h2 style={{ marginBottom: '20px', fontSize: '22px', textAlign: 'center' }}>💼 どうぐを使う</h2>
+                    <h2 style={{ marginBottom: '20px', fontSize: '24px', textAlign: 'center' }}>
+                      💼 どうぐを使う
+                    </h2>
                     <div style={{ display: 'grid', gap: '12px', marginBottom: '20px' }}>
                       {Object.entries(ITEMS).filter(([key]) => inventory[key] > 0).map(([key, item]) => (
                         <button
@@ -1347,42 +2023,44 @@
                             useItem(key);
                             setScreen('battle');
                           }}
+                          className="button-press"
                           style={{
                             display: 'flex',
                             justifyContent: 'space-between',
                             alignItems: 'center',
-                            padding: '15px',
+                            padding: '16px',
                             background: '#f5f5f5',
-                            border: '2px solid #333',
-                            borderRadius: '10px',
+                            border: '3px solid #333',
+                            borderRadius: '12px',
                             cursor: 'pointer',
                             textAlign: 'left',
                             fontSize: '15px'
                           }}
                         >
                           <div>
-                            <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>{item.name}</div>
+                            <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>{item.name}</div>
                             <div style={{ fontSize: '13px', color: '#666' }}>{item.description}</div>
                           </div>
-                          <div style={{ fontWeight: 'bold', fontSize: '16px' }}>×{inventory[key]}</div>
+                          <div style={{ fontWeight: 'bold', fontSize: '18px' }}>×{inventory[key]}</div>
                         </button>
                       ))}
                       {Object.keys(inventory).filter(key => inventory[key] > 0).length === 0 && (
-                        <p style={{ textAlign: 'center', color: '#999', padding: '20px' }}>
+                        <p style={{ textAlign: 'center', color: '#999', padding: '30px', fontSize: '16px' }}>
                           使えるアイテムがありません
                         </p>
                       )}
                     </div>
                     <button
                       onClick={() => setScreen('battle')}
+                      className="button-press"
                       style={{
                         width: '100%',
                         background: '#999',
                         color: 'white',
                         border: 'none',
-                        padding: '12px',
+                        padding: '14px',
                         fontSize: '16px',
-                        borderRadius: '10px',
+                        borderRadius: '12px',
                         cursor: 'pointer',
                         fontWeight: 'bold'
                       }}
@@ -1404,19 +2082,49 @@
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontFamily: 'Arial, sans-serif',
-                color: 'white'
+                color: 'white',
+                padding: '20px'
               }}>
                 <div style={{ textAlign: 'center' }} className="fade-in">
-                  <h1 style={{ fontSize: '40px', marginBottom: '40px', animation: 'bounce 1s infinite' }}>
+                  <h1 className="pulse" style={{ fontSize: '48px', marginBottom: '50px' }}>
                     ✨ 進化中... ✨
                   </h1>
-                  <p style={{ fontSize: '28px', marginBottom: '20px' }}>
-                    {evolutionData.from}
+                  <div className="bounce" style={{
+                    width: '200px',
+                    height: '200px',
+                    background: `linear-gradient(135deg, ${getTypeColor(evolutionData.from.type)}dd, ${getTypeColor(evolutionData.from.type)})`,
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '140px',
+                    margin: '0 auto 40px',
+                    border: `4px solid ${getRarityColor(evolutionData.from.rarity)}`,
+                    boxShadow: '0 10px 30px rgba(255,255,255,0.3)'
+                  }}>
+                    {evolutionData.from.sprite}
+                  </div>
+                  <p style={{ fontSize: '32px', marginBottom: '30px', fontWeight: 'bold' }}>
+                    {evolutionData.from.name}
                   </p>
-                  <p style={{ fontSize: '40px', marginBottom: '20px' }}>↓</p>
-                  <p style={{ fontSize: '32px', fontWeight: 'bold', color: '#FFD700' }}>
-                    {evolutionData.to}
+                  <p className="pulse" style={{ fontSize: '60px', margin: '30px 0' }}>↓</p>
+                  <div className="bounce glow" style={{
+                    width: '200px',
+                    height: '200px',
+                    background: `linear-gradient(135deg, ${getTypeColor(evolutionData.to.type)}dd, ${getTypeColor(evolutionData.to.type)})`,
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '140px',
+                    margin: '0 auto 40px',
+                    border: `4px solid ${getRarityColor(evolutionData.to.rarity)}`,
+                    boxShadow: '0 10px 30px rgba(255,215,0,0.5)'
+                  }}>
+                    {evolutionData.to.sprite}
+                  </div>
+                  <p style={{ fontSize: '36px', fontWeight: 'bold', color: '#FFD700' }}>
+                    {evolutionData.to.name}
                   </p>
                 </div>
               </div>
@@ -1432,43 +2140,68 @@
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                padding: '20px',
-                fontFamily: 'Arial, sans-serif'
+                padding: '20px'
               }}>
-                <div className="fade-in" style={{
-                  background: 'white',
-                  border: '4px solid #333',
-                  borderRadius: '20px',
-                  padding: '50px 40px',
-                  maxWidth: '600px',
-                  textAlign: 'center',
-                  boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+                <div className="card fade-in" style={{
+                  padding: '60px 40px',
+                  maxWidth: '650px',
+                  width: '100%',
+                  textAlign: 'center'
                 }}>
-                  <h1 style={{ fontSize: '42px', marginBottom: '20px', color: '#FFD700' }}>🏆 おめでとう！ 🏆</h1>
-                  <p style={{ fontSize: '20px', marginBottom: '15px', lineHeight: '1.8' }}>
+                  <div className="bounce" style={{ fontSize: '100px', marginBottom: '30px' }}>🏆</div>
+                  <h1 style={{ fontSize: '48px', marginBottom: '25px', color: '#FFD700', fontWeight: 'bold' }}>
+                    おめでとう！
+                  </h1>
+                  <p style={{ fontSize: '22px', marginBottom: '20px', lineHeight: '1.8' }}>
                     きみは全てのライバルを倒し、<br/>
-                    チャンピオンとなった！
+                    この世界のチャンピオンとなった！
                   </p>
-                  <p style={{ fontSize: '18px', marginBottom: '15px', color: '#666' }}>
-                    {playerMonster.name} Lv.{playerMonster.level}<br/>
-                    獲得賞金: {money}円
-                  </p>
-                  <p style={{ fontSize: '16px', marginBottom: '35px', lineHeight: '1.8', color: '#666' }}>
+                  <div style={{
+                    background: 'linear-gradient(135deg, #FFF9C4, #FFEB3B)',
+                    padding: '25px',
+                    borderRadius: '15px',
+                    marginBottom: '25px'
+                  }}>
+                    <div className="bounce" style={{
+                      width: '120px',
+                      height: '120px',
+                      background: `linear-gradient(135deg, ${getTypeColor(playerMonster.type)}dd, ${getTypeColor(playerMonster.type)})`,
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '90px',
+                      margin: '0 auto 15px',
+                      border: `4px solid ${getRarityColor(playerMonster.rarity)}`,
+                      boxShadow: '0 8px 20px rgba(0,0,0,0.3)'
+                    }}>
+                      {playerMonster.sprite}
+                    </div>
+                    <p style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '10px' }}>
+                      {playerMonster.name} Lv.{playerMonster.level}
+                    </p>
+                    <p style={{ fontSize: '16px', color: '#666' }}>
+                      総獲得賞金: {money}円
+                    </p>
+                  </div>
+                  <p style={{ fontSize: '17px', marginBottom: '40px', lineHeight: '1.8', color: '#666' }}>
                     素晴らしい冒険だった！<br/>
                     ありがとう、そしてまた会おう！
                   </p>
                   <button
                     onClick={resetGame}
+                    className="button-press pulse"
                     style={{
                       background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                       color: 'white',
                       border: 'none',
-                      padding: '18px 50px',
-                      fontSize: '20px',
-                      borderRadius: '30px',
+                      padding: '20px 60px',
+                      fontSize: '22px',
+                      borderRadius: '50px',
                       cursor: 'pointer',
                       fontWeight: 'bold',
-                      boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)'
+                      boxShadow: '0 8px 20px rgba(102, 126, 234, 0.4)',
+                      width: '100%'
                     }}
                   >
                     最初から遊ぶ
@@ -1487,25 +2220,21 @@
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontFamily: 'Arial, sans-serif',
                 padding: '20px'
               }}>
-                <div className="fade-in" style={{ 
-                  background: 'white', 
-                  border: '4px solid #333',
-                  borderRadius: '20px',
-                  padding: '50px 40px',
+                <div className="card fade-in" style={{ 
+                  padding: '60px 40px',
                   textAlign: 'center',
                   maxWidth: '500px',
-                  boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+                  width: '100%'
                 }}>
-                  <h1 style={{ fontSize: '38px', margin: '0 0 25px 0', color: '#F85030' }}>
+                  <h1 style={{ fontSize: '48px', margin: '0 0 30px 0', color: '#F85030' }}>
                     GAME OVER
                   </h1>
-                  <p style={{ fontSize: '18px', marginBottom: '15px' }}>
+                  <p style={{ fontSize: '20px', marginBottom: '15px' }}>
                     {playerMonster.name}は力尽きた...
                   </p>
-                  <p style={{ fontSize: '16px', marginBottom: '35px', color: '#666' }}>
+                  <p style={{ fontSize: '16px', marginBottom: '40px', color: '#666' }}>
                     所持金: {money}円
                   </p>
                   <button
@@ -1513,12 +2242,13 @@
                       healAtCenter();
                       setScreen('town');
                     }}
+                    className="button-press"
                     style={{
                       width: '100%',
                       background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                       color: 'white',
                       border: 'none',
-                      padding: '15px 40px',
+                      padding: '18px 40px',
                       fontSize: '18px',
                       borderRadius: '25px',
                       cursor: 'pointer',
@@ -1530,12 +2260,13 @@
                   </button>
                   <button
                     onClick={resetGame}
+                    className="button-press"
                     style={{
                       width: '100%',
                       background: '#999',
                       color: 'white',
                       border: 'none',
-                      padding: '12px',
+                      padding: '14px',
                       fontSize: '16px',
                       borderRadius: '20px',
                       cursor: 'pointer'
@@ -1551,7 +2282,7 @@
           return null;
         };
 
-        ReactDOM.render(<MonsterRPG />, document.getElementById('root'));
+        ReactDOM.render(<MonsterQuest />, document.getElementById('root'));
     </script>
 </body>
 </html>
