@@ -4,8 +4,10 @@ const VIEW_W = 9;
 const VIEW_H = 11;
 const W = 61;
 const H = 61;
-const SAVE_KEY = 'mq_save_v8';
-const ITEM_CAPACITY = 60;
+const SAVE_KEY = 'mq_save_v9';
+const ITEM_CAPACITY = 99;
+const BALL_PRICE = 200;
+const POTION_PRICE = 100;
 
 const STARTERS = [
   { id: 4, name: 'ブレイズ', type: 'fire', hp: 120, atk: 26, def: 14 },
@@ -13,21 +15,32 @@ const STARTERS = [
   { id: 1, name: 'リーファ', type: 'grass', hp: 125, atk: 24, def: 15 }
 ];
 
-const TYPE_MULT = { fire: { grass: 1.3, water: 0.75, fire: 1 }, water: { fire: 1.3, grass: 0.75, water: 1 }, grass: { water: 1.3, fire: 0.75, grass: 1 } };
+const TYPE_MULT = {
+  fire: { grass: 1.3, water: 0.75, fire: 1 },
+  water: { fire: 1.3, grass: 0.75, water: 1 },
+  grass: { water: 1.3, fire: 0.75, grass: 1 }
+};
 
 const TOWNS = [
-  { id: 'start', name: 'はじまりの町', x: 13, y: 28, color: '#8dd4ff' },
-  { id: 'port', name: 'ミナトの町', x: 41, y: 28, color: '#7cd1ff' },
-  { id: 'north', name: 'キタの町', x: 25, y: 13, color: '#b5d7ff' },
-  { id: 'south', name: 'ミナミの町', x: 26, y: 44, color: '#9ac6ff' }
+  { id: 'start', name: 'はじまりの町', x: 13, y: 28 },
+  { id: 'port', name: 'ミナトの町', x: 41, y: 28 },
+  { id: 'north', name: 'キタの町', x: 25, y: 13 },
+  { id: 'south', name: 'ミナミの町', x: 26, y: 44 }
 ];
 
 const TOWN_DETAILS = {
-  start: { motif: '草原の交易町', color: '#b6e17b' },
-  port: { motif: '潮風の港町', color: '#7fd4ff' },
-  north: { motif: '高地の学術都市', color: '#d2d8ff' },
-  south: { motif: '花香る巡礼の町', color: '#ffb4dc' }
+  start: { motif: '草原の交易町' },
+  port: { motif: '潮風の港町' },
+  north: { motif: '高地の学術都市' },
+  south: { motif: '花香る巡礼の町' }
 };
+
+const RIVALS = [
+  { id: 'r1', name: 'カイン', style: '剣士', lvBoost: 2 },
+  { id: 'r2', name: 'ミレイ', style: '魔導士', lvBoost: 4 },
+  { id: 'r3', name: 'ガルド', style: '闘士', lvBoost: 6 },
+  { id: 'r4', name: 'セレナ', style: '王国騎士', lvBoost: 8 }
+];
 
 const INTRO_EVENTS = [
   '王都を離れ、君の冒険が始まる。',
@@ -39,14 +52,15 @@ const INTRO_EVENTS = [
 const STORY_EVENTS = [
   { id: 'pirate_start', title: '港町の依頼', text: '海賊に娘がさらわれた。東のアジトへ向かえ！' },
   { id: 'pirate_clear', title: '救出完了', text: '娘を救出！ 港町へ戻って報告しよう。' },
-  { id: 'ship_get', title: '船を入手', text: 'お礼として船を獲得。海を移動可能になった。' }
+  { id: 'ship_get', title: '船を入手', text: 'お礼として船を獲得。海を移動可能になった。' },
+  { id: 'dragon', title: '終焉の真龍', text: '世界の深部で真龍Lv1000が目覚める。' }
 ];
 
-const QUEST_EVENTS = Array.from({ length: 100 }, (_, i) => ({
+const QUEST_EVENTS = Array.from({ length: 200 }, (_, i) => ({
   id: `q${i + 1}`,
   title: `サブ依頼 ${i + 1}`,
   text: `地方の依頼 ${i + 1} を達成して報酬を得る。`,
-  rewardGil: 40 + (i % 10) * 18
+  rewardGil: 40 + (i % 15) * 18
 }));
 
 const seeded = (seed) => {
@@ -101,7 +115,6 @@ function buildWorld() {
   }
   for (let y = 24; y <= 35; y++) for (let x = 39; x <= 57; x++) map[y][x] = 'f';
   for (let y = 28; y <= 31; y++) for (let x = 33; x <= 39; x++) map[y][x] = 'f';
-
   for (let y = 9; y < 20; y++) for (let x = 9; x < 22; x++) if (map[y][x] === 'f') map[y][x] = 'G';
   for (let y = 39; y < 52; y++) for (let x = 26; x < 39; x++) if (map[y][x] === 'f') map[y][x] = 'G';
   for (let y = 33; y < 49; y++) for (let x = 7; x < 24; x++) if (map[y][x] !== 'w') map[y][x] = 'm';
@@ -114,9 +127,7 @@ function buildWorld() {
   for (let y = 50; y <= 57; y++) for (let x = 29; x <= 46; x++) if (map[y][x] === 'f') map[y][x] = 'p';
 
   for (const t of TOWNS) {
-    for (let dy = 0; dy < 2; dy++) {
-      for (let dx = 0; dx < 2; dx++) map[t.y + dy][t.x + dx] = 't';
-    }
+    for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) map[t.y + dy][t.x + dx] = 't';
   }
 
   const road = (x1, y1, x2, y2) => {
@@ -138,9 +149,12 @@ function buildWorld() {
   ];
   dungeons.forEach((d) => (map[d.y][d.x] = 's'));
 
-  const pirateBase = { x: 56, y: 27, name: '海賊アジト' };
+  const pirateBase = { x: 56, y: 27 };
   map[pirateBase.y][pirateBase.x] = 'h';
   const pirateNpc = { x: 43, y: 29 };
+
+  const dragonLair = { x: 29, y: 6 };
+  map[dragonLair.y][dragonLair.x] = 'B';
 
   const rng = seeded(7777);
   const treasures = {};
@@ -155,33 +169,37 @@ function buildWorld() {
     treasures[candidates.splice(i, 1)[0]] = true;
   }
 
-  return { map, dungeons, pirateBase, pirateNpc, treasures };
+  return { map, dungeons, pirateBase, pirateNpc, dragonLair, treasures };
 }
 
 const WORLD = buildWorld();
-
 const canWalk = (tile, boatOwned) => tile !== 'm' && (tile !== 'w' || boatOwned);
+
 const biomeFromTile = (tile) => {
   if (tile === 'w') return 'sea';
   if (tile === 'F' || tile === 'G') return 'forest';
   if (tile === 'm') return 'mountain';
   if (tile === 'd') return 'desert';
   if (tile === 'b') return 'coast';
-  if (tile === 't' || tile === 'c') return 'town';
+  if (tile === 't') return 'town';
+  if (tile === 's') return 'dungeon';
   return 'field';
 };
 
 const townByCell = (x, y) => TOWNS.find((t) => x >= t.x && x <= t.x + 1 && y >= t.y && y <= t.y + 1);
 const totalItemCount = (inv) => Object.values(inv).reduce((a, b) => a + b, 0);
+const smithCost = (weaponLv) => 200 + (weaponLv - 1) * 150;
 
 function App() {
   const [screen, setScreen] = useState('title');
   const [introIdx, setIntroIdx] = useState(0);
   const [hero, setHero] = useState({ name: 'リンク', lv: 1, exp: 0, expToNext: 100, hpNow: 180, maxHp: 180, atk: 28, def: 16, mp: 30, weaponLv: 1 });
-  const [party, setParty] = useState([]); // max 3
+  const [party, setParty] = useState([]);
+  const [guild, setGuild] = useState([]);
   const [activeMon, setActiveMon] = useState(0);
   const [enemy, setEnemy] = useState(null);
   const [battleBiome, setBattleBiome] = useState('field');
+  const [battleMode, setBattleMode] = useState('wild');
   const [pos, setPos] = useState({ x: 14, y: 29 });
   const [facing, setFacing] = useState('down');
   const [walking, setWalking] = useState(false);
@@ -197,10 +215,12 @@ function App() {
   const [foundDungeons, setFoundDungeons] = useState({});
   const [collectedTreasure, setCollectedTreasure] = useState({});
   const [showBag, setShowBag] = useState(false);
+  const [showStatus, setShowStatus] = useState(false);
   const [townId, setTownId] = useState(null);
+  const [dungeonState, setDungeonState] = useState(null);
 
   const currentMon = party[activeMon];
-  const pendingEvents = useMemo(() => QUEST_EVENTS.filter((e) => !eventsDone.includes(e.id)).slice(0, 8), [eventsDone]);
+  const pendingEvents = useMemo(() => QUEST_EVENTS.filter((e) => !eventsDone.includes(e.id)).slice(0, 20), [eventsDone]);
   const treasureCount = Object.keys(collectedTreasure).length;
 
   const view = useMemo(() => {
@@ -210,7 +230,13 @@ function App() {
       const row = [];
       for (let x = pos.x - rx; x <= pos.x + rx; x++) {
         if (x < 0 || y < 0 || x >= W || y >= H) row.push({ t: 'void', x, y });
-        else row.push({ t: WORLD.map[y][x], x, y, treasure: !!WORLD.treasures[`${x},${y}`] && !collectedTreasure[`${x},${y}`], npc: x === WORLD.pirateNpc.x && y === WORLD.pirateNpc.y });
+        else row.push({
+          t: WORLD.map[y][x],
+          x, y,
+          treasure: !!WORLD.treasures[`${x},${y}`] && !collectedTreasure[`${x},${y}`],
+          npc: x === WORLD.pirateNpc.x && y === WORLD.pirateNpc.y,
+          dragon: x === WORLD.dragonLair.x && y === WORLD.dragonLair.y
+        });
       }
       rows.push(row);
     }
@@ -218,8 +244,13 @@ function App() {
   }, [pos, collectedTreasure]);
 
   const saveData = (next = {}) => {
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ hero, party, activeMon, pos, facing, encounterSteps, gil, inventory, eventsDone, boatOwned, pirateQuest, foundDungeons, collectedTreasure, ...next }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({
+      hero, party, guild, activeMon, pos, facing, encounterSteps, gil, inventory,
+      eventsDone, boatOwned, pirateQuest, foundDungeons, collectedTreasure,
+      dungeonState, ...next
+    }));
   };
+
   const loadData = () => {
     const s = localStorage.getItem(SAVE_KEY);
     if (!s) return;
@@ -228,6 +259,7 @@ function App() {
       if (d.party?.length) {
         setHero(d.hero || hero);
         setParty(d.party);
+        setGuild(d.guild || []);
         setActiveMon(d.activeMon || 0);
         setPos(d.pos || { x: 14, y: 29 });
         setFacing(d.facing || 'down');
@@ -239,6 +271,7 @@ function App() {
         setPirateQuest(d.pirateQuest || { accepted: false, rescued: false, complete: false });
         setFoundDungeons(d.foundDungeons || {});
         setCollectedTreasure(d.collectedTreasure || {});
+        setDungeonState(d.dungeonState || null);
         setScreen('world');
       }
     } catch (e) { console.error(e); }
@@ -268,49 +301,83 @@ function App() {
   }, [screen, turn, enemy, hero, currentMon, party, activeMon]);
 
   useEffect(() => {
-    if (screen !== 'battle' || !enemy || !currentMon) return;
-    if (enemy.hpNow <= 0) {
-      const gain = 140;
-      const newHeroExp = hero.exp + gain;
-      let newHero = { ...hero, exp: newHeroExp };
-      if (newHero.exp >= newHero.expToNext) {
-        newHero = { ...newHero, lv: newHero.lv + 1, exp: newHero.exp - newHero.expToNext, expToNext: Math.floor(newHero.expToNext * 1.2), maxHp: newHero.maxHp + 14, hpNow: newHero.hpNow + 14, atk: newHero.atk + 2, def: newHero.def + 1 };
-      }
-
-      const np = [...party];
-      const m = np[activeMon];
-      const monExp = m.exp + gain;
-      np[activeMon] = { ...m, exp: monExp, lv: monExp >= m.expToNext ? m.lv + 1 : m.lv, expToNext: monExp >= m.expToNext ? Math.floor(m.expToNext * 1.18) : m.expToNext,
-        maxHp: monExp >= m.expToNext ? m.maxHp + 10 : m.maxHp,
-        hpNow: monExp >= m.expToNext ? Math.min(m.maxHp + 10, m.hpNow + 10) : m.hpNow,
-        atkNow: monExp >= m.expToNext ? m.atkNow + 2 : m.atkNow,
-        defNow: monExp >= m.expToNext ? m.defNow + 1.5 : m.defNow,
-        exp: monExp >= m.expToNext ? monExp - m.expToNext : monExp
+    if (screen !== 'battle' || !enemy || !currentMon || enemy.hpNow > 0) return;
+    const gain = battleMode === 'boss' ? 3000 : battleMode === 'rival' ? 500 : 140;
+    const newHeroExp = hero.exp + gain;
+    let newHero = { ...hero, exp: newHeroExp };
+    if (newHero.exp >= newHero.expToNext) {
+      newHero = {
+        ...newHero,
+        lv: newHero.lv + 1,
+        exp: newHero.exp - newHero.expToNext,
+        expToNext: Math.floor(newHero.expToNext * 1.2),
+        maxHp: newHero.maxHp + 14,
+        hpNow: newHero.hpNow + 14,
+        atk: newHero.atk + 2,
+        def: newHero.def + 1
       };
-
-      setHero(newHero); setParty(np); setGil((g) => g + gain); setScreen('world');
-      setLogs((l) => [`${enemy.name}を倒した！ ヒーロー/仲間に${gain}EXP`, ...l].slice(0, 12));
-      saveData({ hero: newHero, party: np, gil: gil + gain });
     }
+
+    const np = [...party];
+    const m = np[activeMon];
+    const monExp = m.exp + gain;
+    np[activeMon] = {
+      ...m,
+      exp: monExp >= m.expToNext ? monExp - m.expToNext : monExp,
+      lv: monExp >= m.expToNext ? m.lv + 1 : m.lv,
+      expToNext: monExp >= m.expToNext ? Math.floor(m.expToNext * 1.18) : m.expToNext,
+      maxHp: monExp >= m.expToNext ? m.maxHp + 10 : m.maxHp,
+      hpNow: monExp >= m.expToNext ? Math.min(m.maxHp + 10, m.hpNow + 10) : m.hpNow,
+      atkNow: monExp >= m.expToNext ? m.atkNow + 2 : m.atkNow,
+      defNow: monExp >= m.expToNext ? m.defNow + 1.5 : m.defNow
+    };
+
+    const addGil = battleMode === 'boss' ? 10000 : battleMode === 'rival' ? 1000 : gain;
+    setHero(newHero); setParty(np); setGil((g) => g + addGil);
+    if (screen === 'battle') setScreen(dungeonState ? 'dungeon' : 'world');
+    setLogs((l) => [`${enemy.name}を倒した！ ヒーロー/仲間に${gain}EXP`, ...l].slice(0, 12));
+
+    if (dungeonState && dungeonState.floor % 5 === 0) {
+      setDungeonState((d) => ({ ...d, clearedBossFloors: { ...(d.clearedBossFloors || {}), [d.floor]: true } }));
+    }
+    saveData({ hero: newHero, party: np });
   }, [enemy, screen]);
 
   const startGame = (starter) => {
     const m = makeMonster({ ...starter, sp: sprite(starter.id) }, 1);
-    const h = { name: 'リンク', lv: 1, exp: 0, expToNext: 100, hpNow: 180, maxHp: 180, atk: 28, def: 16, mp: 30, weaponLv: 1 };
-    setHero(h); setParty([m]); setActiveMon(0);
-    setScreen('intro'); setIntroIdx(0);
-    setPos({ x: 14, y: 29 }); setEncounterSteps(8); setGil(900);
-    setInventory({ potion: 3, ball: 10, iron: 2 }); setEventsDone([]);
-    setBoatOwned(false); setPirateQuest({ accepted: false, rescued: false, complete: false }); setFoundDungeons({}); setCollectedTreasure({});
+    setHero({ name: 'リンク', lv: 1, exp: 0, expToNext: 100, hpNow: 180, maxHp: 180, atk: 28, def: 16, mp: 30, weaponLv: 1 });
+    setParty([m]);
+    setGuild([]);
+    setActiveMon(0);
+    setScreen('intro');
+    setIntroIdx(0);
+    setPos({ x: 14, y: 29 });
+    setEncounterSteps(8);
+    setGil(900);
+    setInventory({ potion: 3, ball: 10, iron: 2 });
+    setEventsDone([]);
+    setBoatOwned(false);
+    setPirateQuest({ accepted: false, rescued: false, complete: false });
+    setFoundDungeons({});
+    setCollectedTreasure({});
+    setDungeonState(null);
   };
 
-  const triggerEncounter = () => {
-    const tile = WORLD.map[pos.y][pos.x];
-    const atSea = tile === 'w';
+  const makeEnemy = (levelBase, forced) => {
+    if (forced) return forced;
     const base = MONSTER_CATALOG[Math.floor(Math.random() * MONSTER_CATALOG.length)];
-    const e = makeMonster(base, Math.max(2, currentMon.lv + Math.floor(Math.random() * 3) - 1));
-    setBattleBiome(biomeFromTile(tile));
-    setEnemy(e); setTurn('hero'); setScreen('battle');
+    return makeMonster(base, Math.max(2, levelBase + Math.floor(Math.random() * 3) - 1));
+  };
+
+  const triggerEncounter = (forcedEnemy = null, mode = 'wild', forcedBiome = null) => {
+    const tile = WORLD.map[pos.y][pos.x];
+    const levelBase = dungeonState ? dungeonState.entryLv + Math.floor((dungeonState.floor - 1) / 2) : currentMon.lv;
+    const e = makeEnemy(levelBase, forcedEnemy);
+    setBattleBiome(forcedBiome || biomeFromTile(tile));
+    setBattleMode(mode);
+    setEnemy(e);
+    setTurn('hero');
+    setScreen('battle');
     setLogs((l) => [`エンカウント！ ${e.name} が現れた`, ...l].slice(0, 12));
   };
 
@@ -319,23 +386,21 @@ function App() {
     if (WORLD.treasures[key] && !collectedTreasure[key]) {
       const next = { ...collectedTreasure, [key]: true };
       const gain = 25 + (Object.keys(next).length % 7) * 6;
-      setCollectedTreasure(next); setGil((g) => g + gain);
+      setCollectedTreasure(next);
+      setGil((g) => g + gain);
       setLogs((l) => [`宝箱を開けた！ ${gain}ギル獲得（${Object.keys(next).length}/200）`, ...l].slice(0, 12));
-      saveData({ collectedTreasure: next, gil: gil + gain });
     }
     for (const d of WORLD.dungeons) {
       if (d.x === x && d.y === y && !foundDungeons[d.id]) {
         const fd = { ...foundDungeons, [d.id]: true };
         setFoundDungeons(fd);
         setLogs((l) => [`隠しダンジョン発見: ${d.name}（${Object.keys(fd).length}/5）`, ...l].slice(0, 12));
-        saveData({ foundDungeons: fd });
       }
     }
     if (pirateQuest.accepted && !pirateQuest.rescued && x === WORLD.pirateBase.x && y === WORLD.pirateBase.y) {
       const q = { ...pirateQuest, rescued: true };
       setPirateQuest(q);
       setLogs((l) => ['海賊アジトを制圧！ 娘を救出した。港町へ戻ろう。', ...l].slice(0, 12));
-      saveData({ pirateQuest: q });
     }
   };
 
@@ -350,7 +415,10 @@ function App() {
       return;
     }
 
-    setWalking(true); setStepA((s) => !s); setPos({ x: nx, y: ny }); checkDiscover(nx, ny);
+    setWalking(true);
+    setStepA((s) => !s);
+    setPos({ x: nx, y: ny });
+    checkDiscover(nx, ny);
 
     const t = townByCell(nx, ny);
     if (t) {
@@ -361,9 +429,41 @@ function App() {
       return;
     }
 
+    if (tile === 's') {
+      const dungeon = WORLD.dungeons.find((d) => d.x === nx && d.y === ny);
+      if (dungeon) {
+        setDungeonState({ dungeonId: dungeon.id, name: dungeon.name, floor: 5, entryLv: Math.max(hero.lv, currentMon.lv), clearedBossFloors: {} });
+        setScreen('dungeon');
+        setLogs((l) => [`${dungeon.name}に突入！ 地下5Fから開始`, ...l].slice(0, 12));
+        setTimeout(() => setWalking(false), 120);
+        return;
+      }
+    }
+
+    if (tile === 'B') {
+      const dragon = makeMonster({ id: 149, name: '真龍', type: 'fire', hp: 2200, atk: 380, def: 260, sp: sprite(149) }, 1000);
+      triggerEncounter(dragon, 'boss', 'mountain');
+      setTimeout(() => setWalking(false), 120);
+      return;
+    }
+
+    if (Math.random() < 0.06) {
+      const idx = Math.floor(Math.random() * RIVALS.length);
+      const rival = RIVALS[idx];
+      const rivalEnemy = makeMonster({ id: 26 + idx, name: `ライバル${rival.name}`, type: ['fire', 'water', 'grass', 'fire'][idx], hp: 180, atk: 35, def: 24, sp: sprite(25 + idx) }, hero.lv + rival.lvBoost);
+      setLogs((l) => [`ライバル ${rival.name} (${rival.style}) が勝負を挑んできた！`, ...l].slice(0, 12));
+      triggerEncounter(rivalEnemy, 'rival');
+      setTimeout(() => setWalking(false), 120);
+      return;
+    }
+
     const left = encounterSteps - 1;
-    if (left <= 0) { setEncounterSteps(5 + Math.floor(Math.random() * 7)); setTimeout(triggerEncounter, 120); }
-    else setEncounterSteps(left);
+    if (left <= 0) {
+      setEncounterSteps(5 + Math.floor(Math.random() * 7));
+      setTimeout(() => triggerEncounter(), 120);
+    } else {
+      setEncounterSteps(left);
+    }
 
     saveData({ pos: { x: nx, y: ny }, encounterSteps: Math.max(1, left), facing: dir });
     setTimeout(() => setWalking(false), 120);
@@ -373,11 +473,16 @@ function App() {
     if (Math.abs(pos.x - WORLD.pirateNpc.x) + Math.abs(pos.y - WORLD.pirateNpc.y) <= 1) {
       if (!pirateQuest.accepted) {
         const q = { accepted: true, rescued: false, complete: false };
-        setPirateQuest(q); setLogs((l) => [STORY_EVENTS[0].text, ...l].slice(0, 12)); saveData({ pirateQuest: q });
+        setPirateQuest(q);
+        setLogs((l) => [STORY_EVENTS[0].text, ...l].slice(0, 12));
       } else if (pirateQuest.rescued && !pirateQuest.complete) {
         const q = { ...pirateQuest, complete: true };
-        setPirateQuest(q); setBoatOwned(true); setLogs((l) => [STORY_EVENTS[2].text, ...l].slice(0, 12)); saveData({ pirateQuest: q, boatOwned: true });
-      } else setLogs((l) => ['この船で世界の海を巡るといい。', ...l].slice(0, 12));
+        setPirateQuest(q);
+        setBoatOwned(true);
+        setLogs((l) => [STORY_EVENTS[2].text, ...l].slice(0, 12));
+      } else {
+        setLogs((l) => ['この船で世界の海を巡るといい。', ...l].slice(0, 12));
+      }
       return;
     }
     setLogs((l) => ['誰もいないようだ。', ...l].slice(0, 12));
@@ -385,25 +490,27 @@ function App() {
 
   const investigate = () => {
     const tile = WORLD.map[pos.y][pos.x];
-    const msg = tile === 's' ? '祠で祈りを捧げた。' : tile === 'h' ? '海賊の印を見つけた。' : tile === 'd' ? '熱い砂が広がっている。' : tile === 'b' ? '波打ち際に足跡が残る。' : tile === 'G' ? '背の高い草むらだ。' : '周囲を調べたが特に何もない。';
+    const msg = tile === 's' ? '階段の先に気配がある。' : tile === 'h' ? '海賊の印を見つけた。' : tile === 'd' ? '熱い砂が広がっている。' : tile === 'b' ? '波打ち際に足跡が残る。' : tile === 'G' ? '背の高い草むらだ。' : tile === 'B' ? '真龍の咆哮が聞こえる…' : '周囲を調べたが特に何もない。';
     setLogs((l) => [msg, ...l].slice(0, 12));
   };
 
   const capture = () => {
-    if (turn !== 'hero' || !enemy || inventory.ball <= 0) return;
+    if (turn !== 'hero' || !enemy || inventory.ball <= 0 || battleMode !== 'wild') return;
     const inv = { ...inventory, ball: inventory.ball - 1 };
     setInventory(inv);
     const rate = Math.max(0.1, 0.72 - (enemy.hpNow / enemy.maxHp));
     if (Math.random() < rate) {
+      const caught = { ...enemy, exp: 0, expToNext: 100 };
       if (party.length < 3) {
-        const caught = { ...enemy, exp: 0, expToNext: 100 };
         const np = [...party, caught];
         setParty(np);
         setLogs((l) => [`${enemy.name}を捕まえた！ 手持ち(${np.length}/3)`, ...l].slice(0, 12));
       } else {
-        setLogs((l) => ['手持ちは最大3匹。これ以上は連れていけない。', ...l].slice(0, 12));
+        const ng = [...guild, caught];
+        setGuild(ng);
+        setLogs((l) => [`${enemy.name}を捕まえた！ ギルドに送られた（${ng.length}）`, ...l].slice(0, 12));
       }
-      setScreen('world');
+      setScreen(dungeonState ? 'dungeon' : 'world');
     } else {
       setLogs((l) => ['捕獲失敗！', ...l].slice(0, 12));
       setTurn('monster');
@@ -447,15 +554,44 @@ function App() {
   const innRest = () => {
     setHero((h) => ({ ...h, hpNow: h.maxHp, mp: 30 }));
     setParty((p) => p.map((m) => ({ ...m, hpNow: m.maxHp })));
-    setLogs((l) => ['宿屋で休み、全回復した。', ...l].slice(0, 12));
+    setLogs((l) => ['宿屋に休んだ。体力が回復した！', ...l].slice(0, 12));
   };
 
   const forgeWeapon = () => {
-    if (gil < 200 || inventory.iron <= 0) { setLogs((l) => ['素材またはギルが不足している。', ...l].slice(0, 12)); return; }
-    setGil((g) => g - 200);
+    const cost = smithCost(hero.weaponLv);
+    if (gil < cost || inventory.iron <= 0) {
+      setLogs((l) => [`素材またはギル不足（必要: ${cost}ギル + 鉄1）`, ...l].slice(0, 12));
+      return;
+    }
+    setGil((g) => g - cost);
     setInventory((i) => ({ ...i, iron: i.iron - 1 }));
     setHero((h) => ({ ...h, weaponLv: h.weaponLv + 1, atk: h.atk + 2 }));
-    setLogs((l) => ['鍛冶屋で武器を強化した！', ...l].slice(0, 12));
+    setLogs((l) => [`鍛冶屋で武器を強化！ 次回費用 ${smithCost(hero.weaponLv + 1)}ギル`, ...l].slice(0, 12));
+  };
+
+  const buyItem = (key, price) => {
+    if (gil < price) {
+      setLogs((l) => ['ギルが足りない。', ...l].slice(0, 12));
+      return;
+    }
+    if (totalItemCount(inventory) + 1 > ITEM_CAPACITY) {
+      setLogs((l) => ['持ち物がいっぱいだ。', ...l].slice(0, 12));
+      return;
+    }
+    setGil((g) => g - price);
+    setInventory((i) => ({ ...i, [key]: (i[key] || 0) + 1 }));
+    setLogs((l) => [`${key === 'ball' ? 'ボール' : 'ポーション'}を購入した（-${price}ギル）`, ...l].slice(0, 12));
+  };
+
+  const swapPartyGuild = (pi, gi) => {
+    const np = [...party];
+    const ng = [...guild];
+    const tmp = np[pi];
+    np[pi] = ng[gi];
+    ng[gi] = tmp;
+    setParty(np);
+    setGuild(ng);
+    if (activeMon === pi) setActiveMon(pi);
   };
 
   const addQuestReward = (ev) => {
@@ -466,9 +602,36 @@ function App() {
     setLogs((l) => [`${ev.title}達成！ ${ev.rewardGil}ギル獲得`, ...l].slice(0, 12));
   };
 
-  const addItem = (key, amount) => {
-    if (totalItemCount(inventory) + amount > ITEM_CAPACITY) { setLogs((l) => ['持ち物がいっぱいだ。', ...l].slice(0, 12)); return; }
-    setInventory((i) => ({ ...i, [key]: (i[key] || 0) + amount }));
+  const dungeonStep = () => {
+    if (!dungeonState || !currentMon) return;
+    const encounterRate = 0.55;
+    if (Math.random() < encounterRate) {
+      const lv = dungeonState.entryLv + Math.floor(dungeonState.floor / 2);
+      const bossFloor = dungeonState.floor % 5 === 0;
+      const bossDone = dungeonState.clearedBossFloors?.[dungeonState.floor];
+      if (bossFloor && !bossDone) {
+        const boss = makeMonster({ id: 248, name: `${dungeonState.floor}Fボス`, type: 'fire', hp: 260 + dungeonState.floor * 6, atk: 48 + dungeonState.floor, def: 30 + dungeonState.floor * 0.8, sp: sprite(248) }, lv + 3);
+        triggerEncounter(boss, 'boss', 'dungeon');
+      } else {
+        triggerEncounter(makeEnemy(lv), 'wild', 'dungeon');
+      }
+    } else {
+      setLogs((l) => [`地下${dungeonState.floor}Fを探索中...`, ...l].slice(0, 12));
+    }
+  };
+
+  const dungeonMove = (delta) => {
+    if (!dungeonState) return;
+    const nf = Math.max(5, Math.min(50, dungeonState.floor + delta));
+    setDungeonState((d) => ({ ...d, floor: nf }));
+    setLogs((l) => [`${dungeonState.name} 地下${nf}Fへ`, ...l].slice(0, 12));
+  };
+
+  const renderTileIcon = (cell) => {
+    if (cell.npc) return '👧';
+    if (cell.dragon) return '🐉';
+    const map = { t: '🏘️', r: '·', w: '🌊', m: '⛰️', F: '🌲', G: '🌾', h: '🏴‍☠️', d: '🏜️', b: '🏖️', p: '🌸', s: '🕍', B: '🐉' };
+    return map[cell.t] || '';
   };
 
   return (
@@ -503,11 +666,11 @@ function App() {
         <div className="panel party-panel">
           <div className="ally-box"><span className="heart">❤</span>リンク Lv.{hero.lv} HP {hero.hpNow}/{hero.maxHp} MP:{hero.mp} 武器+{hero.weaponLv - 1}</div>
           <div className="ally-box"><img src={currentMon.sp} className="monster-art tiny"/> {currentMon.name} Lv.{currentMon.lv} HP {currentMon.hpNow}/{currentMon.maxHp}</div>
-          <div className="badge">遭遇 {encounterSteps}歩 / 宝 {treasureCount}/200 / 隠しD {Object.keys(foundDungeons).length}/5 / 手持ち {party.length}/3</div>
+          <div className="badge">遭遇 {encounterSteps}歩 / 宝 {treasureCount}/200 / 隠しD {Object.keys(foundDungeons).length}/5 / 手持ち {party.length}/3 / ギルド {guild.length}</div>
         </div>
 
         <div className="world dq-world">
-          {view.flat().map((cell, i) => <div key={i} className={`tile ${cell.t}`}>{cell.t === 't' ? '🏘️' : cell.t === 'r' ? '·' : cell.t === 'w' ? '🌊' : cell.t === 'm' ? '⛰️' : cell.t === 'F' ? '🌲' : cell.t === 'G' ? '🌾' : cell.t === 'h' ? '🏴‍☠️' : cell.t === 'd' ? '🏜️' : cell.t === 'b' ? '🏖️' : cell.t === 'p' ? '🌸' : cell.t === 's' ? '🕍' : cell.t === 'void' ? '' : cell.t === 'f' ? '' : ''}{cell.treasure ? '📦' : ''}{cell.npc ? '👧' : ''}</div>)}
+          {view.flat().map((cell, i) => <div key={i} className={`tile ${cell.t}`}>{renderTileIcon(cell)}{cell.treasure ? '📦' : ''}</div>)}
           <div className={`hero-walker ${facing} ${walking ? 'walk' : ''} ${stepA ? 'step-a' : 'step-b'}`}>
             {boatOwned && WORLD.map[pos.y][pos.x] === 'w' ? <span>⛵</span> : <div className="hero-avatar"><i className="hair"/><i className="face"/><i className="tunic"/><i className="sword"/></div>}
           </div>
@@ -516,7 +679,7 @@ function App() {
         <div className="panel dq-message">{logs[0]}</div>
 
         <div className="panel map-legend"><strong>地形ガイド</strong>
-          <div>🌿平原 / 🌾草むら / 🌲深林 / ⛰️山(通行不可) / 🌊海(船で通行) / 🏘️町 / 📦宝箱 / 👧依頼人</div>
+          <div>🌿平原 / 🌾草むら / 🌲深林 / ⛰️山(通行不可) / 🌊海(船で通行) / 🏘️町 / 🕍隠しダンジョン / 📦宝箱 / 🐉真龍</div>
         </div>
 
         <div className="dq-controls">
@@ -524,9 +687,9 @@ function App() {
             <button className="btn mini" onClick={talk}>はなす</button>
             <button className="btn mini" onClick={investigate}>しらべる</button>
             <button className="btn mini" onClick={() => setShowBag(true)}>もちもの</button>
+            <button className="btn mini" onClick={() => setShowStatus(true)}>ステータス</button>
             <button className="btn mini" onClick={triggerEncounter}>たたかう</button>
             <button className="btn mini" onClick={() => setScreen('town')}>町にもどる</button>
-            <button className="btn mini" onClick={() => addItem('ball', 1)}>ボール補充</button>
           </div>
           <div className="dpad dq-dpad">
             <div /> <button className="btn" onClick={() => move(0, -1, 'up')}>▲</button> <div />
@@ -535,7 +698,7 @@ function App() {
           </div>
         </div>
 
-        <div className="panel"><strong>イベント（わかりやすい一覧）</strong>
+        <div className="panel event-panel"><strong>イベント（見やすい一覧）</strong>
           <div className="event-list">
             {STORY_EVENTS.map((e) => <div key={e.id} className="event-item"><strong>{e.title}</strong><div>{e.text}</div></div>)}
             {pendingEvents.map((ev) => <div key={ev.id} className="event-item"><strong>{ev.title}</strong><div>{ev.text}</div><button className="btn mini" onClick={() => addQuestReward(ev)}>達成</button></div>)}
@@ -547,11 +710,24 @@ function App() {
         <div className="panel"><strong>{TOWNS.find(t => t.id===townId)?.name || '町'}</strong><p>{TOWN_DETAILS[townId]?.motif || '町の施設を利用しよう。'}</p></div>
         <div className={`town-map town-${townId || 'start'}`}>
           <button className="panel town-tile" onClick={innRest}>🏨 宿屋<br/><small>休んで回復</small></button>
-          <button className="panel town-tile" onClick={forgeWeapon}>⚒️ 鍛冶屋<br/><small>武器を鍛える</small></button>
+          <button className="panel town-tile" onClick={forgeWeapon}>⚒️ 鍛冶屋<br/><small>鍛錬費 {smithCost(hero.weaponLv)}G</small></button>
           <button className="panel town-tile" onClick={() => saveData()}>⛪ 教会<br/><small>セーブ</small></button>
           <button className="panel town-tile" onClick={() => loadData()}>📜 教会<br/><small>ロード</small></button>
+          <button className="panel town-tile" onClick={() => buyItem('ball', BALL_PRICE)}>🏪 商会<br/><small>ボール {BALL_PRICE}G ({inventory.ball})</small></button>
+          <button className="panel town-tile" onClick={() => buyItem('potion', POTION_PRICE)}>🧪 商会<br/><small>ポーション {POTION_PRICE}G ({inventory.potion})</small></button>
         </div>
         <button className="btn" onClick={() => setScreen('world')}>ワールドへ戻る</button>
+      </div>}
+
+      {screen === 'dungeon' && dungeonState && <div className="screen-scroll">
+        <div className="panel"><strong>{dungeonState.name}</strong><p>地下{dungeonState.floor}F / 入場時基準Lv {dungeonState.entryLv} / 5Fごとにボス</p></div>
+        <div className="panel dungeon-ops">
+          <button className="btn" onClick={() => dungeonMove(-1)}>上階へ</button>
+          <button className="btn" onClick={dungeonStep}>探索する</button>
+          <button className="btn" onClick={() => dungeonMove(1)}>下階へ</button>
+        </div>
+        <div className="panel">最奥は地下50F。各5F(5,10,...,50)の最奥にボスが待つ。</div>
+        <button className="btn" onClick={() => { setDungeonState(null); setScreen('world'); }}>脱出する</button>
       </div>}
 
       {screen === 'battle' && currentMon && enemy && <div className="screen-scroll battle-layout ff7-panel">
@@ -574,9 +750,9 @@ function App() {
           <button className="btn" onClick={heroAttack} disabled={turn !== 'hero'}>リンク攻撃</button>
           <button className="btn" onClick={heroSkill} disabled={turn !== 'hero' || hero.mp < 8}>回転斬り</button>
           <button className="btn" onClick={usePotion} disabled={turn !== 'hero' || inventory.potion <= 0}>ポーション({inventory.potion})</button>
-          <button className="btn" onClick={capture} disabled={turn !== 'hero' || inventory.ball <= 0}>捕獲({inventory.ball})</button>
+          <button className="btn" onClick={capture} disabled={turn !== 'hero' || inventory.ball <= 0 || battleMode !== 'wild'}>捕獲({inventory.ball})</button>
           <button className="btn" onClick={monAttack} disabled={turn !== 'monster'}>{currentMon.name}攻撃</button>
-          <button className="btn" onClick={() => setScreen('world')}>にげる</button>
+          <button className="btn" onClick={() => setScreen(dungeonState ? 'dungeon' : 'world')}>にげる</button>
         </div>
       </div>}
 
@@ -585,6 +761,21 @@ function App() {
           <h3>もちもの ({totalItemCount(inventory)}/{ITEM_CAPACITY})</h3>
           {Object.entries(inventory).map(([k, v]) => <div key={k} className="bag-row"><span>{k}</span><strong>{v}</strong></div>)}
           <button className="btn" onClick={() => setShowBag(false)}>閉じる</button>
+        </div>
+      </div>}
+
+      {showStatus && <div className="overlay" onClick={() => setShowStatus(false)}>
+        <div className="panel status" onClick={(e) => e.stopPropagation()}>
+          <h3>ステータス</h3>
+          <div>リンク Lv.{hero.lv} HP {hero.hpNow}/{hero.maxHp} MP {hero.mp} 攻撃 {hero.atk} 防御 {hero.def}</div>
+          <div>装備: ソード+{hero.weaponLv - 1}</div>
+          <hr/>
+          <strong>手持ち(3枠)</strong>
+          {party.map((m, i) => <div key={`${m.name}-${i}`} className="bag-row"><button className="btn mini" onClick={() => setActiveMon(i)}>{i === activeMon ? '出撃中' : '先頭にする'}</button><span>{m.name} Lv.{m.lv}</span></div>)}
+          <strong>ギルド保管</strong>
+          {guild.length === 0 && <div>保管中なし</div>}
+          {guild.map((m, gi) => <div key={`${m.name}-g-${gi}`} className="bag-row"><span>{m.name} Lv.{m.lv}</span><div>{party.map((_, pi) => <button key={pi} className="btn mini" onClick={() => swapPartyGuild(pi, gi)}>枠{pi + 1}と交換</button>)}</div></div>)}
+          <button className="btn" onClick={() => setShowStatus(false)}>閉じる</button>
         </div>
       </div>}
     </div></div>
