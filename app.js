@@ -1,7 +1,7 @@
 {
 const { useMemo, useState, useEffect } = React;
 const GD = window.GameData;
-
+        
 function App() {
   const [screen, setScreen] = useState('title');
   const [introIdx, setIntroIdx] = useState(0);
