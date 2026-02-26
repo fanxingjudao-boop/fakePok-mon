@@ -1,235 +1,6 @@
+{
 const { useMemo, useState, useEffect } = React;
-
-const VIEW_W = 9;
-const VIEW_H = 11;
-const W = 61;
-const H = 61;
-const SAVE_KEY = 'mq_save_v9';
-const ITEM_CAPACITY = 99;
-const BALL_PRICE = 200;
-const POTION_PRICE = 100;
-
-const STARTERS = [
-  { id: 4, name: 'ブレイズ', type: 'fire', hp: 120, atk: 26, def: 14 },
-  { id: 7, name: 'アクア', type: 'water', hp: 130, atk: 23, def: 16 },
-  { id: 1, name: 'リーファ', type: 'grass', hp: 125, atk: 24, def: 15 }
-];
-
-const TYPE_MULT = {
-  fire: { grass: 1.3, water: 0.75, fire: 1 },
-  water: { fire: 1.3, grass: 0.75, water: 1 },
-  grass: { water: 1.3, fire: 0.75, grass: 1 }
-};
-
-const TOWNS = [
-  { id: 'start', name: 'はじまりの町', x: 13, y: 28 },
-  { id: 'port', name: 'ミナトの町', x: 41, y: 28 },
-  { id: 'north', name: 'キタの町', x: 25, y: 13 },
-  { id: 'south', name: 'ミナミの町', x: 26, y: 44 }
-];
-
-const TOWN_DETAILS = {
-  start: { motif: '草原の交易町' },
-  port: { motif: '潮風の港町' },
-  north: { motif: '高地の学術都市' },
-  south: { motif: '花香る巡礼の町' }
-};
-
-const RIVALS = Array.from({ length: 40 }, (_, i) => ({
-  id: `r${i + 1}`,
-  name: `ライバル${i + 1}`,
-  style: ['剣士', '魔導士', '闘士', '王国騎士'][i % 4],
-  lvBoost: 2 + (i % 10)
-}));
-
-const INTRO_EVENTS = [
-  '王都を離れ、君の冒険が始まる。',
-  '最初の仲間を選び、4つの町を巡ろう。',
-  '港町では海賊にさらわれた娘を助ける依頼が待っている。',
-  '宝箱と隠しダンジョンを見つけ、最強の冒険者を目指せ！',
-  '王宮で授かった地図には、古代遺跡と真龍の印が刻まれている。',
-  '40人のライバルと競い、英雄として名を上げよう。',
-  '各地の町で50人の住民が君の活躍を待っている。',
-  'エンディング後も、限界突破でLv1000を目指せる。'
-];
-
-const WONDER_RANKS = ['旅立ち', '冒険者', '英雄候補', '王国の希望', '伝説', 'マーベラス'];
-
-
-const RIVAL_LINES = ['ここからが本気だ！', 'まだ旅は終わらない！', '勝負の熱が上がってきた！', '君なら超えてくると思った！'];
-const DRAGON_LINES = ['真龍の炎を受けてみよ。', '世界の理を示そう。', 'よくここまで来たな、人の子よ。'];
-const NPC_LINES = ['旅人さん、東の森には宝箱が多いよ。', '町の鍛冶屋で装備を強くできるって。', '海へ出るなら船が必要だね。', 'ライバルは強いけど経験値が多いよ。', '教会では記録を残せるんだ。'];
-const AREA_LEVELS = { field: 8, forest: 14, coast: 18, desert: 24, mountain: 30, sea: 36, town: 10 };
-
-
-const STORY_EVENTS = [
-  { id: 'pirate_start', title: '港町の依頼', text: '海賊に娘がさらわれた。東のアジトへ向かえ！' },
-  { id: 'pirate_clear', title: '救出完了', text: '娘を救出！ 港町へ戻って報告しよう。' },
-  { id: 'ship_get', title: '船を入手', text: 'お礼として船を獲得。海を移動可能になった。' },
-  { id: 'dragon', title: '終焉の真龍', text: '世界の深部で真龍Lv100が目覚める。' }
-];
-
-const QUEST_EVENTS = Array.from({ length: 200 }, (_, i) => ({
-  id: `q${i + 1}`,
-  title: `サブ依頼 ${i + 1}`,
-  text: `地方の依頼 ${i + 1} を達成して報酬を得る。`,
-  rewardGil: 40 + (i % 15) * 18
-}));
-
-const seeded = (seed) => {
-  let s = seed;
-  return () => (s = (s * 1664525 + 1013904223) % 4294967296) / 4294967296;
-};
-
-const sprite = (id) => `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`;
-
-const NAME_PREFIX = ['フレア', 'アクア', 'リーフ', 'シャドウ', 'ライト', 'ストーン', 'スカイ', 'サンダー', 'ミスト', 'ブレイズ', 'ルナ', 'ソル', 'アイアン', 'クリムゾン', 'シルバー', 'ゴールド', 'ウィンド', 'ストーム', 'サクラ', 'ネビュラ'];
-const NAME_SUFFIX = ['ウルフ', 'ドラ', 'バード', 'リザード', 'フェアリ', 'タイガ', 'フォックス', 'ゴーレム', 'スライム', 'ナイト'];
-
-const buildMonsterCatalog = () => {
-  const arr = [];
-  for (let i = 1; i <= 200; i++) {
-    const type = i % 3 === 0 ? 'fire' : i % 3 === 1 ? 'water' : 'grass';
-    const name = `${NAME_PREFIX[Math.floor((i - 1) / 10)]}${NAME_SUFFIX[(i - 1) % 10]}`;
-    arr.push({
-      id: i,
-      name,
-      type,
-      hp: 90 + (i % 35),
-      atk: 18 + (i % 20),
-      def: 12 + (i % 18),
-      sp: sprite(i)
-    });
-  }
-  return arr;
-};
-
-const MONSTER_CATALOG = buildMonsterCatalog();
-
-const makeMonster = (base, lv = 1) => ({
-  id: base.id,
-  name: base.name,
-  type: base.type,
-  sp: base.sp,
-  lv,
-  exp: 0,
-  expToNext: 80 + lv * 20,
-  hpNow: base.hp + lv * 8,
-  maxHp: base.hp + lv * 8,
-  atkNow: base.atk + lv * 2,
-  defNow: base.def + lv * 1.5
-});
-
-function buildWorld() {
-  const map = Array.from({ length: H }, () => Array.from({ length: W }, () => 'w'));
-  for (let y = 3; y < 58; y++) {
-    for (let x = 3; x < 58; x++) {
-      const cx = (x - 30) / 26;
-      const cy = (y - 30) / 23;
-      const wave = Math.sin(x * 0.18) * 0.08 + Math.cos(y * 0.15) * 0.08;
-      if ((cx * cx + cy * cy + wave) < 1.05) map[y][x] = 'f';
-    }
-  }
-  for (let y = 24; y <= 35; y++) for (let x = 39; x <= 57; x++) map[y][x] = 'f';
-  for (let y = 28; y <= 31; y++) for (let x = 33; x <= 39; x++) map[y][x] = 'f';
-  for (let y = 9; y < 20; y++) for (let x = 9; x < 22; x++) if (map[y][x] === 'f') map[y][x] = 'G';
-  for (let y = 39; y < 52; y++) for (let x = 26; x < 39; x++) if (map[y][x] === 'f') map[y][x] = 'G';
-  for (let y = 33; y < 49; y++) for (let x = 7; x < 24; x++) if (map[y][x] !== 'w') map[y][x] = 'm';
-  for (let y = 14; y < 24; y++) for (let x = 43; x < 57; x++) if (map[y][x] !== 'w') map[y][x] = 'm';
-  for (let y = 46; y < 58; y++) for (let x = 43; x < 58; x++) if (map[y][x] !== 'w') map[y][x] = 'F';
-  for (let y = 25; y <= 35; y++) for (let x = 23; x <= 31; x++) map[y][x] = 'w';
-  for (let y = 35; y <= 52; y++) map[y][31] = 'w';
-  for (let y = 23; y <= 36; y++) { if (map[y][22] === 'f') map[y][22] = 'b'; if (map[y][32] === 'f') map[y][32] = 'b'; }
-  for (let y = 6; y <= 13; y++) for (let x = 25; x <= 37; x++) if (map[y][x] === 'f') map[y][x] = 'd';
-  for (let y = 50; y <= 57; y++) for (let x = 29; x <= 46; x++) if (map[y][x] === 'f') map[y][x] = 'p';
-
-  for (const t of TOWNS) {
-    for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) map[t.y + dy][t.x + dx] = 't';
-  }
-
-  const road = (x1, y1, x2, y2) => {
-    let x = x1, y = y1;
-    while (x !== x2 || y !== y2) {
-      if (map[y][x] !== 't') map[y][x] = 'r';
-      if (x < x2) x++; else if (x > x2) x--;
-      else if (y < y2) y++; else if (y > y2) y--;
-    }
-  };
-  road(14, 29, 42, 29); road(14, 29, 26, 14); road(14, 29, 27, 45);
-
-  const dungeons = [
-    { id: 'd1', x: 18, y: 17, name: '古代遺跡' },
-    { id: 'd2', x: 15, y: 41, name: '黒鉄洞' },
-    { id: 'd3', x: 46, y: 18, name: '天空塔' },
-    { id: 'd4', x: 52, y: 33, name: '深海神殿' },
-    { id: 'd5', x: 35, y: 49, name: '忘却の祠' }
-  ];
-  dungeons.forEach((d) => (map[d.y][d.x] = 's'));
-
-  const pirateBase = { x: 56, y: 27 };
-  map[pirateBase.y][pirateBase.x] = 'h';
-  const pirateNpc = { x: 43, y: 29 };
-
-  const dragonLair = { x: 29, y: 6 };
-  map[dragonLair.y][dragonLair.x] = 'B';
-
-  const rng = seeded(7777);
-  const treasures = {};
-  const candidates = [];
-  for (let y = 1; y < H - 1; y++) {
-    for (let x = 1; x < W - 1; x++) {
-      if (['f', 'F', 'r', 'd', 'g', 'b', 'p', 'G'].includes(map[y][x])) candidates.push(`${x},${y}`);
-    }
-  }
-  while (Object.keys(treasures).length < 200 && candidates.length) {
-    const i = Math.floor(rng() * candidates.length);
-    treasures[candidates.splice(i, 1)[0]] = true;
-  }
-
-  return { map, dungeons, pirateBase, pirateNpc, dragonLair, treasures };
-}
-
-const WORLD = buildWorld();
-const canWalk = (tile, boatOwned) => tile !== 'm' && (tile !== 'w' || boatOwned);
-
-const biomeFromTile = (tile) => {
-  if (tile === 'w') return 'sea';
-  if (tile === 'F' || tile === 'G') return 'forest';
-  if (tile === 'm') return 'mountain';
-  if (tile === 'd') return 'desert';
-  if (tile === 'b') return 'coast';
-  if (tile === 't') return 'town';
-  if (tile === 's') return 'dungeon';
-  return 'field';
-};
-
-const townByCell = (x, y) => TOWNS.find((t) => x >= t.x && x <= t.x + 1 && y >= t.y && y <= t.y + 1);
-const totalItemCount = (inv) => Object.values(inv).reduce((a, b) => a + b, 0);
-const smithCost = (weaponLv) => 200 + (weaponLv - 1) * 150;
-
-const NPCS = (() => {
-  const arr = [];
-  const rng = seeded(9321);
-  const candidates = [];
-  for (let y = 2; y < H - 2; y++) {
-    for (let x = 2; x < W - 2; x++) {
-      const t = WORLD.map[y][x];
-      if (['f', 'r', 'G', 'b', 't'].includes(t)) candidates.push({ x, y });
-    }
-  }
-  while (arr.length < 50 && candidates.length) {
-    const i = Math.floor(rng() * candidates.length);
-    const p = candidates.splice(i, 1)[0];
-    arr.push({ id: `n${arr.length + 1}`, name: `住民${arr.length + 1}`, x: p.x, y: p.y, line: NPC_LINES[arr.length % NPC_LINES.length] });
-  }
-  return arr;
-})();
-const IRON_SPOTS = (() => {
-  const points = {};
-  WORLD.dungeons.forEach((d, i) => { points[`${d.x + 1},${d.y}`] = true; points[`${d.x},${d.y + 1}`] = true; if (i < 3) points[`${d.x - 1},${d.y}`] = true; });
-  return points;
-})();
-
+const GD = window.GameData;
 
 function App() {
   const [screen, setScreen] = useState('title');
@@ -265,7 +36,7 @@ function App() {
   const [claimedIron, setClaimedIron] = useState({});
 
   const currentMon = party[activeMon];
-  const pendingEvents = useMemo(() => QUEST_EVENTS.filter((e) => !eventsDone.includes(e.id)).slice(0, 20), [eventsDone]);
+  const pendingEvents = useMemo(() => GD.QUEST_EVENTS.filter((e) => !eventsDone.includes(e.id)).slice(0, 20), [eventsDone]);
   const treasureCount = Object.keys(collectedTreasure).length;
   const wonderScore = useMemo(() => (
     treasureCount * 2 +
@@ -275,22 +46,22 @@ function App() {
     (pirateQuest.complete ? 40 : 0) +
     Math.floor(hero.lv * 1.8)
   ), [treasureCount, foundDungeons, rivalsDefeated, boatOwned, pirateQuest, hero.lv]);
-  const wonderRank = WONDER_RANKS[Math.min(WONDER_RANKS.length - 1, Math.floor(wonderScore / 160))];
+  const wonderRank = GD.WONDER_RANKS[Math.min(GD.WONDER_RANKS.length - 1, Math.floor(wonderScore / 160))];
 
   const view = useMemo(() => {
     const rows = [];
-    const rx = Math.floor(VIEW_W / 2), ry = Math.floor(VIEW_H / 2);
+    const rx = Math.floor(GD.VIEW_W / 2), ry = Math.floor(GD.VIEW_H / 2);
     for (let y = pos.y - ry; y <= pos.y + ry; y++) {
       const row = [];
       for (let x = pos.x - rx; x <= pos.x + rx; x++) {
-        if (x < 0 || y < 0 || x >= W || y >= H) row.push({ t: 'void', x, y });
+        if (x < 0 || y < 0 || x >= GD.W || y >= GD.H) row.push({ t: 'void', x, y });
         else row.push({
-          t: WORLD.map[y][x],
+          t: GD.WORLD.map[y][x],
           x, y,
-          treasure: !!WORLD.treasures[`${x},${y}`] && !collectedTreasure[`${x},${y}`],
-          npc: x === WORLD.pirateNpc.x && y === WORLD.pirateNpc.y,
-          dragon: x === WORLD.dragonLair.x && y === WORLD.dragonLair.y,
-          npc: NPCS.find((n) => n.x === x && n.y === y)
+          treasure: !!GD.WORLD.treasures[`${x},${y}`] && !collectedTreasure[`${x},${y}`],
+          npc: x === GD.WORLD.pirateNpc.x && y === GD.WORLD.pirateNpc.y,
+          dragon: x === GD.WORLD.dragonLair.x && y === GD.WORLD.dragonLair.y,
+          npc: GD.NPCS.find((n) => n.x === x && n.y === y)
         });
       }
       rows.push(row);
@@ -299,7 +70,7 @@ function App() {
   }, [pos, collectedTreasure]);
 
   const saveData = (next = {}) => {
-    localStorage.setItem(SAVE_KEY, JSON.stringify({
+    localStorage.setItem(GD.SAVE_KEY, JSON.stringify({
       hero, party, guild, activeMon, pos, facing, encounterSteps, gil, inventory,
       eventsDone, boatOwned, pirateQuest, foundDungeons, collectedTreasure,
       dungeonState, endingCleared, claimedIron, ...next
@@ -307,7 +78,7 @@ function App() {
   };
 
   const loadData = () => {
-    const s = localStorage.getItem(SAVE_KEY);
+    const s = localStorage.getItem(GD.SAVE_KEY);
     if (!s) return;
     try {
       const d = JSON.parse(s);
@@ -350,7 +121,7 @@ function App() {
         setHero((h) => ({ ...h, hpNow: Math.max(0, h.hpNow - d) }));
         setLogs((l) => [`${enemy.name}の攻撃！ リンクに${d}ダメージ`, ...l].slice(0, 12));
       } else {
-        const mult = TYPE_MULT[enemy.type]?.[currentMon.type] || 1;
+        const mult = GD.TYPE_MULT[enemy.type]?.[currentMon.type] || 1;
         const d = Math.max(6, Math.floor((enemy.atkNow * mult) - currentMon.defNow * 0.55 + Math.random() * 8));
         const np = [...party];
         np[activeMon] = { ...currentMon, hpNow: Math.max(0, currentMon.hpNow - d) };
@@ -422,7 +193,7 @@ function App() {
   }, [enemy, screen]);
 
   const startGame = (starter) => {
-    const m = makeMonster({ ...starter, sp: sprite(starter.id) }, 1);
+    const m = GD.makeMonster({ ...starter, sp: GD.sprite(starter.id) }, 1);
     setHero({ name: 'リンク', lv: 1, exp: 0, expToNext: 100, hpNow: 180, maxHp: 180, atk: 28, def: 16, mp: 30, weaponLv: 1 });
     setParty([m]);
     setGuild([]);
@@ -446,15 +217,15 @@ function App() {
   const makeEnemy = (levelBase, forced) => {
     if (forced) return forced;
     const base = MONSTER_CATALOG[Math.floor(Math.random() * MONSTER_CATALOG.length)];
-    return makeMonster(base, Math.max(2, levelBase + Math.floor(Math.random() * 3) - 1));
+    return GD.makeMonster(base, Math.max(2, levelBase + Math.floor(Math.random() * 3) - 1));
   };
 
   const triggerEncounter = (forcedEnemy = null, mode = 'wild', forcedBiome = null) => {
-    const tile = WORLD.map[pos.y][pos.x];
-    const biome = biomeFromTile(tile);
-    const levelBase = dungeonState ? hero.lv + Math.floor((dungeonState.floor - 1) / 2) : (AREA_LEVELS[biome] || currentMon.lv);
+    const tile = GD.WORLD.map[pos.y][pos.x];
+    const biome = GD.biomeFromTile(tile);
+    const levelBase = dungeonState ? hero.lv + Math.floor((dungeonState.floor - 1) / 2) : (GD.AREA_LEVELS[biome] || currentMon.lv);
     const e = makeEnemy(levelBase, forcedEnemy);
-    setBattleBiome(forcedBiome || biomeFromTile(tile));
+    setBattleBiome(forcedBiome || GD.biomeFromTile(tile));
     setBattleMode(mode);
     setEnemy(e);
     setTurn('hero');
@@ -465,21 +236,21 @@ function App() {
 
   const checkDiscover = (x, y) => {
     const key = `${x},${y}`;
-    if (WORLD.treasures[key] && !collectedTreasure[key]) {
+    if (GD.WORLD.treasures[key] && !collectedTreasure[key]) {
       const next = { ...collectedTreasure, [key]: true };
       const gain = 25 + (Object.keys(next).length % 7) * 6;
       setCollectedTreasure(next);
       setGil((g) => g + gain);
       setLogs((l) => [`宝箱を開けた！ ${gain}ギル獲得（${Object.keys(next).length}/200）`, ...l].slice(0, 12));
     }
-    for (const d of WORLD.dungeons) {
+    for (const d of GD.WORLD.dungeons) {
       if (d.x === x && d.y === y && !foundDungeons[d.id]) {
         const fd = { ...foundDungeons, [d.id]: true };
         setFoundDungeons(fd);
         setLogs((l) => [`隠しダンジョン発見: ${d.name}（${Object.keys(fd).length}/5）`, ...l].slice(0, 12));
       }
     }
-    if (pirateQuest.accepted && !pirateQuest.rescued && x === WORLD.pirateBase.x && y === WORLD.pirateBase.y) {
+    if (pirateQuest.accepted && !pirateQuest.rescued && x === GD.WORLD.pirateBase.x && y === GD.WORLD.pirateBase.y) {
       const q = { ...pirateQuest, rescued: true };
       setPirateQuest(q);
       setLogs((l) => ['海賊アジトを制圧！ 娘を救出した。港町へ戻ろう。', ...l].slice(0, 12));
@@ -489,10 +260,10 @@ function App() {
   const move = (dx, dy, dir) => {
     if (walking || screen !== 'world' || !currentMon) return;
     setFacing(dir);
-    const nx = Math.max(0, Math.min(W - 1, pos.x + dx));
-    const ny = Math.max(0, Math.min(H - 1, pos.y + dy));
-    const tile = WORLD.map[ny][nx];
-    if (!canWalk(tile, boatOwned)) {
+    const nx = Math.max(0, Math.min(GD.W - 1, pos.x + dx));
+    const ny = Math.max(0, Math.min(GD.H - 1, pos.y + dy));
+    const tile = GD.WORLD.map[ny][nx];
+    if (!GD.canWalk(tile, boatOwned)) {
       setLogs((l) => [tile === 'w' ? '海だ。船が必要だ。' : 'その先は進めない。', ...l].slice(0, 12));
       return;
     }
@@ -502,7 +273,7 @@ function App() {
     setPos({ x: nx, y: ny });
     checkDiscover(nx, ny);
 
-    const t = townByCell(nx, ny);
+    const t = GD.townByCell(nx, ny);
     if (t) {
       setTownId(t.id);
       setScreen('town');
@@ -512,7 +283,7 @@ function App() {
     }
 
     if (tile === 's') {
-      const dungeon = WORLD.dungeons.find((d) => d.x === nx && d.y === ny);
+      const dungeon = GD.WORLD.dungeons.find((d) => d.x === nx && d.y === ny);
       if (dungeon) {
         setDungeonState({ dungeonId: dungeon.id, name: dungeon.name, floor: dungeon.id === 'd1' ? 1 : 5, entryLv: Math.max(hero.lv, currentMon.lv), clearedBossFloors: {} });
         setScreen('dungeon');
@@ -523,18 +294,18 @@ function App() {
     }
 
     if (tile === 'B') {
-      const dragon = makeMonster({ id: 149, name: '真龍', type: 'fire', hp: 1200, atk: 180, def: 130, sp: sprite(149) }, 100);
-      setLogs((l) => [`真龍「${DRAGON_LINES[Math.floor(Math.random()*DRAGON_LINES.length)]}」`, ...l].slice(0, 12));
+      const dragon = GD.makeMonster({ id: 149, name: '真龍', type: 'fire', hp: 1200, atk: 180, def: 130, sp: GD.sprite(149) }, 100);
+      setLogs((l) => [`真龍「${GD.DRAGON_LINES[Math.floor(Math.random()*GD.DRAGON_LINES.length)]}」`, ...l].slice(0, 12));
       triggerEncounter(dragon, 'boss', 'mountain');
       setTimeout(() => setWalking(false), 120);
       return;
     }
 
     if (Math.random() < 0.06) {
-      const idx = Math.floor(Math.random() * RIVALS.length);
-      const rival = RIVALS[idx];
-      const rivalEnemy = makeMonster({ id: 26 + idx, name: `ライバル${rival.name}`, type: ['fire', 'water', 'grass', 'fire'][idx], hp: 180, atk: 35, def: 24, sp: sprite(25 + idx) }, hero.lv + rival.lvBoost);
-      setLogs((l) => [`ライバル ${rival.name} (${rival.style}) が勝負を挑んできた！「${RIVAL_LINES[Math.floor(Math.random()*RIVAL_LINES.length)]}」`, ...l].slice(0, 12));
+      const idx = Math.floor(Math.random() * GD.RIVALS.length);
+      const rival = GD.RIVALS[idx];
+      const rivalEnemy = GD.makeMonster({ id: 26 + idx, name: `ライバル${rival.name}`, type: ['fire', 'water', 'grass', 'fire'][idx], hp: 180, atk: 35, def: 24, sp: GD.sprite(25 + idx) }, hero.lv + rival.lvBoost);
+      setLogs((l) => [`ライバル ${rival.name} (${rival.style}) が勝負を挑んできた！「${GD.RIVAL_LINES[Math.floor(Math.random()*GD.RIVAL_LINES.length)]}」`, ...l].slice(0, 12));
       triggerEncounter(rivalEnemy, 'rival');
       setTimeout(() => setWalking(false), 120);
       return;
@@ -553,33 +324,33 @@ function App() {
   };
 
   const talk = () => {
-    const npc = NPCS.find((n) => Math.abs(pos.x - n.x) + Math.abs(pos.y - n.y) <= 1);
+    const npc = GD.NPCS.find((n) => Math.abs(pos.x - n.x) + Math.abs(pos.y - n.y) <= 1);
     if (npc) {
       setLogs((l) => [`${npc.name}「${npc.line}」`, ...l].slice(0, 12));
       return;
     }
-    if (Math.abs(pos.x - WORLD.pirateNpc.x) + Math.abs(pos.y - WORLD.pirateNpc.y) <= 1) {
+    if (Math.abs(pos.x - GD.WORLD.pirateNpc.x) + Math.abs(pos.y - GD.WORLD.pirateNpc.y) <= 1) {
       if (!pirateQuest.accepted) {
         const q = { accepted: true, rescued: false, complete: false };
         setPirateQuest(q);
-        setLogs((l) => [STORY_EVENTS[0].text, ...l].slice(0, 12));
+        setLogs((l) => [GD.STORY_EVENTS[0].text, ...l].slice(0, 12));
       } else if (pirateQuest.rescued && !pirateQuest.complete) {
         const q = { ...pirateQuest, complete: true };
         setPirateQuest(q);
         setBoatOwned(true);
-        setLogs((l) => [STORY_EVENTS[2].text, ...l].slice(0, 12));
+        setLogs((l) => [GD.STORY_EVENTS[2].text, ...l].slice(0, 12));
       } else {
         setLogs((l) => ['この船で世界の海を巡るといい。', ...l].slice(0, 12));
       }
       return;
     }
-    setLogs((l) => [`遠くから旅人の声が聞こえる…「${NPC_LINES[Math.floor(Math.random() * NPC_LINES.length)]}」`, ...l].slice(0, 12));
+    setLogs((l) => [`遠くから旅人の声が聞こえる…「${GD.NPC_LINES[Math.floor(Math.random() * GD.NPC_LINES.length)]}」`, ...l].slice(0, 12));
   };
 
   const investigate = () => {
-    const tile = WORLD.map[pos.y][pos.x];
+    const tile = GD.WORLD.map[pos.y][pos.x];
     const key = `${pos.x},${pos.y}`;
-    if (IRON_SPOTS[key] && !claimedIron[key]) {
+    if (GD.IRON_SPOTS[key] && !claimedIron[key]) {
       const next = { ...claimedIron, [key]: true };
       setClaimedIron(next);
       setInventory((i) => ({ ...i, iron: (i.iron || 0) + 1 }));
@@ -642,7 +413,7 @@ function App() {
 
   const monAttack = () => {
     if (turn !== 'monster' || !enemy || !currentMon) return;
-    const m = TYPE_MULT[currentMon.type]?.[enemy.type] || 1;
+    const m = GD.TYPE_MULT[currentMon.type]?.[enemy.type] || 1;
     const crit = Math.random() < 0.12;
     const raw = Math.max(7, Math.floor(currentMon.atkNow * m - enemy.defNow * 0.45 + Math.random() * 10));
     const d = crit ? Math.floor(raw * 1.55) : raw;
@@ -658,7 +429,7 @@ function App() {
   };
 
   const forgeWeapon = () => {
-    const cost = smithCost(hero.weaponLv);
+    const cost = GD.smithCost(hero.weaponLv);
     if (gil < cost || inventory.iron <= 0) {
       setLogs((l) => [`素材またはギル不足（必要: ${cost}ギル + 鉄1）`, ...l].slice(0, 12));
       return;
@@ -666,7 +437,7 @@ function App() {
     setGil((g) => g - cost);
     setInventory((i) => ({ ...i, iron: i.iron - 1 }));
     setHero((h) => ({ ...h, weaponLv: h.weaponLv + 1, atk: h.atk + 2 }));
-    setLogs((l) => [`鍛冶屋で武器を強化！ 次回費用 ${smithCost(hero.weaponLv + 1)}ギル`, ...l].slice(0, 12));
+    setLogs((l) => [`鍛冶屋で武器を強化！ 次回費用 ${GD.smithCost(hero.weaponLv + 1)}ギル`, ...l].slice(0, 12));
   };
 
   const buyItem = (key, price) => {
@@ -674,7 +445,7 @@ function App() {
       setLogs((l) => ['ギルが足りない。', ...l].slice(0, 12));
       return;
     }
-    if (totalItemCount(inventory) + 1 > ITEM_CAPACITY) {
+    if (GD.totalItemCount(inventory) + 1 > GD.ITEM_CAPACITY) {
       setLogs((l) => ['持ち物がいっぱいだ。', ...l].slice(0, 12));
       return;
     }
@@ -710,7 +481,7 @@ function App() {
       const bossFloor = dungeonState.floor % 5 === 0;
       const bossDone = dungeonState.clearedBossFloors?.[dungeonState.floor];
       if (bossFloor && !bossDone) {
-        const boss = makeMonster({ id: 248, name: `${dungeonState.floor}Fボス`, type: 'fire', hp: 260 + dungeonState.floor * 6, atk: 48 + dungeonState.floor, def: 30 + dungeonState.floor * 0.8, sp: sprite(248) }, lv + 3);
+        const boss = GD.makeMonster({ id: 248, name: `${dungeonState.floor}Fボス`, type: 'fire', hp: 260 + dungeonState.floor * 6, atk: 48 + dungeonState.floor, def: 30 + dungeonState.floor * 0.8, sp: GD.sprite(248) }, lv + 3);
         triggerEncounter(boss, 'boss', 'dungeon');
       } else {
         triggerEncounter(makeEnemy(lv), 'wild', 'dungeon');
@@ -750,9 +521,9 @@ function App() {
 
       {screen === 'starter' && <div className="screen-scroll">
         <div className="panel"><strong>最初の仲間を選ぶ（火・水・草）</strong></div>
-        <div className="grid">{STARTERS.map((s) => (
+        <div className="grid">{GD.STARTERS.map((s) => (
           <div key={s.id} className="starter-card">
-            <img src={sprite(s.id)} className="monster-art" alt={s.name} />
+            <img src={GD.sprite(s.id)} className="monster-art" alt={s.name} />
             <div className="grow"><strong>{s.name}</strong><div>{s.type.toUpperCase()}</div></div>
             <button className="btn" onClick={() => startGame(s)}>選択</button>
           </div>
@@ -760,10 +531,10 @@ function App() {
       </div>}
 
       {screen === 'intro' && <div className="screen-scroll center-col">
-        <div className="panel"><strong>始まりのイベント（拡張）</strong><p>{INTRO_EVENTS[introIdx]}</p></div>
+        <div className="panel"><strong>始まりのイベント（拡張）</strong><p>{GD.INTRO_EVENTS[introIdx]}</p></div>
         <div className="footer-actions">
           <button className="btn" onClick={() => setIntroIdx((i) => Math.max(0, i - 1))} disabled={introIdx === 0}>戻る</button>
-          <button className="btn" onClick={() => introIdx < INTRO_EVENTS.length - 1 ? setIntroIdx((i) => i + 1) : (setScreen('world'), saveData())}>{introIdx < INTRO_EVENTS.length - 1 ? '次へ' : '出発'}</button>
+          <button className="btn" onClick={() => introIdx < GD.INTRO_EVENTS.length - 1 ? setIntroIdx((i) => i + 1) : (setScreen('world'), saveData())}>{introIdx < GD.INTRO_EVENTS.length - 1 ? '次へ' : '出発'}</button>
         </div>
       </div>}
 
@@ -777,7 +548,7 @@ function App() {
         <div className="world dq-world">
           {view.flat().map((cell, i) => <div key={i} className={`tile ${cell.t}`}>{renderTileIcon(cell)}{cell.treasure ? '📦' : ''}</div>)}
           <div className={`hero-walker ${facing} ${walking ? 'walk' : ''} ${stepA ? 'step-a' : 'step-b'}`}>
-            {boatOwned && WORLD.map[pos.y][pos.x] === 'w' ? <span>⛵</span> : <div className="hero-avatar"><i className="hair"/><i className="face"/><i className="tunic"/><i className="sword"/></div>}
+            {boatOwned && GD.WORLD.map[pos.y][pos.x] === 'w' ? <span>⛵</span> : <div className="hero-avatar"><i className="hair"/><i className="face"/><i className="tunic"/><i className="sword"/></div>}
           </div>
         </div>
 
@@ -802,14 +573,14 @@ function App() {
       </div>}
 
       {screen === 'town' && <div className="screen-scroll">
-        <div className="panel"><strong>{TOWNS.find(t => t.id===townId)?.name || '町'}</strong><p>{TOWN_DETAILS[townId]?.motif || '町の施設を利用しよう。'}</p></div>
+        <div className="panel"><strong>{GD.TOWNS.find(t => t.id===townId)?.name || '町'}</strong><p>{GD.TOWN_DETAILS[townId]?.motif || '町の施設を利用しよう。'}</p></div>
         <div className={`town-map town-${townId || 'start'}`}>
           <button className="panel town-tile" onClick={innRest}>🏨 宿屋<br/><small>休んで回復</small></button>
-          <button className="panel town-tile" onClick={forgeWeapon}>⚒️ 鍛冶屋<br/><small>鍛錬費 {smithCost(hero.weaponLv)}G</small></button>
+          <button className="panel town-tile" onClick={forgeWeapon}>⚒️ 鍛冶屋<br/><small>鍛錬費 {GD.smithCost(hero.weaponLv)}G</small></button>
           <button className="panel town-tile" onClick={() => saveData()}>⛪ 教会<br/><small>セーブ</small></button>
           <button className="panel town-tile" onClick={() => loadData()}>📜 教会<br/><small>ロード</small></button>
-          <button className="panel town-tile" onClick={() => buyItem('ball', BALL_PRICE)}>🏪 商会<br/><small>ボール {BALL_PRICE}G ({inventory.ball})</small></button>
-          <button className="panel town-tile" onClick={() => buyItem('potion', POTION_PRICE)}>🧪 商会<br/><small>ポーション {POTION_PRICE}G ({inventory.potion})</small></button>
+          <button className="panel town-tile" onClick={() => buyItem('ball', GD.BALL_PRICE)}>🏪 商会<br/><small>ボール {GD.BALL_PRICE}G ({inventory.ball})</small></button>
+          <button className="panel town-tile" onClick={() => buyItem('potion', GD.POTION_PRICE)}>🧪 商会<br/><small>ポーション {GD.POTION_PRICE}G ({inventory.potion})</small></button>
         </div>
         <button className="btn" onClick={() => setScreen('world')}>ワールドへ戻る</button>
       </div>}
@@ -853,7 +624,7 @@ function App() {
 
       {showBag && <div className="overlay" onClick={() => setShowBag(false)}>
         <div className="panel bag" onClick={(e) => e.stopPropagation()}>
-          <h3>もちもの ({totalItemCount(inventory)}/{ITEM_CAPACITY})</h3>
+          <h3>もちもの ({GD.totalItemCount(inventory)}/{GD.ITEM_CAPACITY})</h3>
           {Object.entries(inventory).map(([k, v]) => <div key={k} className="bag-row"><span>{k}</span><strong>{v}</strong></div>)}
           <button className="btn" onClick={() => setShowBag(false)}>閉じる</button>
         </div>
@@ -864,7 +635,7 @@ function App() {
           <h3>イベントログ</h3><p>エグゼクティブレビュー用: 進行・戦績・達成項目をここで確認できます。</p>
           <div className="log">{logs.map((l, i) => <div key={`jl-${i}`}>{l}</div>)}</div>
           <div className="event-list">
-            {STORY_EVENTS.map((e) => <div key={e.id} className="event-item"><strong>{e.title}</strong><div>{e.text}</div></div>)}
+            {GD.STORY_EVENTS.map((e) => <div key={e.id} className="event-item"><strong>{e.title}</strong><div>{e.text}</div></div>)}
             {pendingEvents.slice(0, 12).map((ev) => <div key={ev.id} className="event-item"><strong>{ev.title}</strong><div>{ev.text}</div><button className="btn mini" onClick={() => addQuestReward(ev)}>達成</button></div>)}
           </div>
           <button className="btn" onClick={() => setShowJournal(false)}>閉じる</button>
@@ -890,3 +661,5 @@ function App() {
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+
+}
