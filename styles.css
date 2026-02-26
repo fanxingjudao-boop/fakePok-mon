@@ -1,0 +1,78 @@
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;overflow:hidden;touch-action:none;overscroll-behavior:none;font-family:'Trebuchet MS',Inter,sans-serif;background:#0b1210;color:#f8f2dc}
+#root{height:100%}
+.app{position:fixed;inset:0;display:flex;justify-content:center;align-items:center;padding:6px;background:radial-gradient(circle at top,#314f28,#0b1210 66%)}
+.phone-shell{width:min(430px,100vw);height:100dvh;max-height:100dvh;border-radius:16px;overflow:hidden;border:2px solid #d2b06a;display:flex;flex-direction:column;box-shadow:0 0 0 2px #2f2413 inset,0 20px 40px rgba(0,0,0,.45)}
+.zelda-skin{background:linear-gradient(180deg,#183f27,#102f20)}
+.header{padding:10px 14px;border-bottom:2px solid #f6c64f;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(90deg,#1f5a38,#317f4f);text-shadow:0 1px 0 rgba(0,0,0,.35)}
+.screen-scroll{flex:1;overflow:auto;padding:10px;display:flex;flex-direction:column;gap:8px;min-height:0;scrollbar-width:none}
+.center-col{justify-content:center}
+.panel{background:linear-gradient(180deg,#fff3d8,#eadfb8);color:#1e2a12;border:2px solid #87621f;border-radius:12px;padding:10px;box-shadow:inset 0 0 0 1px rgba(255,243,193,.6)}
+.title-panel h1{font-size:20px;margin:4px 0}.sparkle{font-size:18px;letter-spacing:4px;color:#7a5a16;animation:idle 1.6s ease-in-out infinite}.wonder-panel{font-size:12px;background:linear-gradient(180deg,#fff8e8,#f1e0b9);border-color:#b58934}
+.btn{border:none;border-radius:10px;padding:10px 9px;font-weight:700;color:#fff;background:linear-gradient(135deg,#4f8f43,#2d6b32);cursor:pointer;box-shadow:0 2px 0 #234f28}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.mini{padding:5px 7px;font-size:11px}
+.grid{display:grid;gap:8px}
+.grow{flex:1}
+.starter-card{padding:8px;border-radius:10px;border:1px solid #8b6a2e;background:rgba(16,28,14,.72);display:flex;align-items:center;gap:10px}
+.monster-art{width:80px;height:80px;object-fit:contain;filter:drop-shadow(0 6px 10px rgba(0,0,0,.5));animation:idle 2s ease-in-out infinite}
+.monster-art.tiny{width:52px;height:52px}
+@keyframes idle{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.party-panel{display:grid;gap:6px}
+.ally-box{font-size:13px;display:flex;align-items:center;gap:6px}
+.heart{color:#f53}.badge{font-size:11px;background:#21311b;border:1px solid #8b6a2e;color:#f6ecc9;border-radius:999px;padding:4px 8px;display:inline-block}
+
+.dq-world-layout{display:grid;grid-template-rows:auto auto auto auto auto auto;gap:8px;min-height:0}
+.world{position:relative;display:grid;grid-template-columns:repeat(9,1fr);grid-auto-rows:30px;gap:2px;background:#0b1210;border-radius:9px;padding:4px;border:1px solid #5f4a1f}
+.tile{display:flex;align-items:center;justify-content:center;font-size:11px;border-radius:5px;position:relative}
+.f{background:linear-gradient(145deg,#7ed16b,#559f45),repeating-linear-gradient(45deg,transparent 0 6px,rgba(255,255,255,.05) 6px 8px)}
+.r{background:linear-gradient(145deg,#caab77,#a1793f)}.t{background:linear-gradient(145deg,#d8b97e,#be9450)}.w{background:linear-gradient(145deg,#55a2e8,#1f69be)}.m{background:linear-gradient(145deg,#939ca6,#606a76)}.F{background:linear-gradient(145deg,#3e9247,#20692c)}.G{background:linear-gradient(145deg,#a9d369,#6fa045)}.h{background:linear-gradient(145deg,#b15d5d,#7b3636)}.d{background:linear-gradient(145deg,#f2cf8a,#d3a95d)}.b{background:linear-gradient(145deg,#c2ebff,#79c8ef)}.p{background:linear-gradient(145deg,#ffc0e2,#ef8fbe)}.s{background:linear-gradient(145deg,#a489c7,#6f5896)}.B{background:linear-gradient(145deg,#6f2727,#411515)}.void{background:#101010}
+
+.hero-walker{position:absolute;left:calc(50% - 13px);top:calc(50% - 13px);width:26px;height:26px;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 2px 4px rgba(0,0,0,.45));z-index:4}
+.hero-walker span{font-size:14px;transition:transform .12s}
+.hero-walker.up span{transform:rotate(-15deg)}.hero-walker.left span{transform:scaleX(-1)}.hero-walker.walk.step-a{transform:translateY(-1px)}.hero-walker.walk.step-b{transform:translateY(1px)}
+.hero-avatar{position:relative;width:18px;height:20px}.hero-avatar i{position:absolute;display:block}
+.hero-avatar .hair{width:12px;height:5px;background:#7d4b30;border-radius:8px 8px 3px 3px;left:3px;top:0}
+.hero-avatar .face{width:9px;height:7px;background:#f3c9a9;border-radius:5px;left:4px;top:4px}
+.hero-avatar .tunic{width:12px;height:8px;background:#2f9457;border-radius:3px;left:3px;top:11px}
+.hero-avatar .sword{width:2px;height:10px;background:#d9e4f2;right:0;top:6px;transform:rotate(26deg)}
+
+.map-legend,.dq-message{font-size:12px;line-height:1.4}
+.dq-controls{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end}
+.dq-command-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.dpad{display:grid;grid-template-columns:56px 56px 56px;grid-template-rows:56px 56px 56px;gap:5px;justify-content:center}
+.dpad .btn{padding:0;font-size:18px}
+.dq-dpad .btn{background:linear-gradient(135deg,#8b6a2e,#6d4f1f);box-shadow:0 2px 0 #4d3816}
+.event-list{max-height:180px;overflow:auto;display:grid;gap:6px}
+.event-item{padding:8px;border:1px solid #9a7f42;background:#f7edce;border-radius:10px;font-size:12px}
+
+.town-map{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.town-tile{min-height:84px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;cursor:pointer}
+.town-start .town-tile{background:linear-gradient(180deg,#e8f5d3,#cce8b0)}.town-port .town-tile{background:linear-gradient(180deg,#dbf2ff,#b8e5ff)}.town-north .town-tile{background:linear-gradient(180deg,#edefff,#d6dcff)}.town-south .town-tile{background:linear-gradient(180deg,#ffe2f3,#ffcde8)}
+
+.dungeon-ops{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+
+.battle-layout{display:grid;grid-template-rows:auto auto 1fr auto;gap:8px;height:100%;min-height:0}
+.ff7-panel{background:linear-gradient(180deg,#13233e,#0b1627)}
+.battle-scene{display:grid;grid-template-columns:1fr;gap:8px;position:relative;overflow:hidden}.battle-scene::after{content:'';position:absolute;inset:0;background:linear-gradient(120deg,transparent 0%,rgba(255,255,255,.08) 45%,transparent 70%);animation:shine 3.6s linear infinite;pointer-events:none}@keyframes shine{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+.battle-scene.biome-field{background:radial-gradient(circle at center,#3f5f35,#1d2a1a)}.battle-scene.biome-forest{background:radial-gradient(circle at center,#2d5a2e,#122414)}.battle-scene.biome-mountain{background:radial-gradient(circle at center,#6b7280,#1f2937)}.battle-scene.biome-sea{background:radial-gradient(circle at center,#2563eb,#0b1f4a)}.battle-scene.biome-town{background:radial-gradient(circle at center,#8b6a2e,#3b2a14)}.battle-scene.biome-desert{background:radial-gradient(circle at center,#d8b46a,#6f5227)}.battle-scene.biome-coast{background:radial-gradient(circle at center,#7ec8e3,#226b96)}.battle-scene.biome-dungeon{background:radial-gradient(circle at center,#5a4f7e,#211936)}
+.combatant{display:flex;align-items:center;gap:8px}.combatant.enemy{justify-content:flex-end}.combat-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:center}
+.hero-sprite{font-size:30px;animation:idle 1.4s ease-in-out infinite}
+.atb-box{display:grid;gap:6px;font-size:12px}.turn-guide{font-size:12px;opacity:.9}
+.log{height:88px;overflow:auto;font-size:12px;background:#0a1324;border:1px solid #5f78a1;border-radius:10px;padding:8px;color:#e8f0ff}
+.battle-actions{grid-template-columns:repeat(2,1fr)}
+
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:20;padding:14px}
+.bag,.status{width:min(360px,94vw);max-height:86dvh;overflow:auto}
+.bag-row{display:flex;justify-content:space-between;align-items:center;gap:6px;padding:6px 0;border-bottom:1px dashed #a98f55}
+
+@media (min-width:900px){
+  .phone-shell{width:min(520px,96vw);height:min(930px,96vh)}
+}
+@media (max-height:760px){
+  .world{grid-auto-rows:27px}
+  .event-list{max-height:120px}
+  .dpad{grid-template-columns:48px 48px 48px;grid-template-rows:48px 48px 48px}
+}
+
+.save-error{margin:6px 10px;padding:8px;border-color:#b33;background:linear-gradient(180deg,#ffe2e2,#ffc8c8);color:#6d0000;font-size:12px}
