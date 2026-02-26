@@ -1,11 +1,11 @@
 {
 const { useMemo, useState, useEffect } = React;
 const GD = window.GameData;
-
+        
 function App() {
   const [screen, setScreen] = useState('title');
   const [introIdx, setIntroIdx] = useState(0);
-  const [hero, setHero] = useState({ name: 'リンク', lv: 1, exp: 0, expToNext: 100, hpNow: 180, maxHp: 180, atk: 28, def: 16, mp: 30, weaponLv: 1 });
+  const [hero, setHero] = useState({ name: 'ユウ', lv: 1, exp: 0, expToNext: 100, hpNow: 180, maxHp: 180, atk: 28, def: 16, mp: 30, weaponLv: 1 });
   const [party, setParty] = useState([]);
   const [guild, setGuild] = useState([]);
   const [activeMon, setActiveMon] = useState(0);
@@ -34,6 +34,9 @@ function App() {
   const [dungeonState, setDungeonState] = useState(null);
   const [endingCleared, setEndingCleared] = useState(false);
   const [claimedIron, setClaimedIron] = useState({});
+  const [talkCount, setTalkCount] = useState(0);
+  const [captureCount, setCaptureCount] = useState(0);
+  const [saveError, setSaveError] = useState('');
 
   const currentMon = party[activeMon];
   const pendingEvents = useMemo(() => GD.QUEST_EVENTS.filter((e) => !eventsDone.includes(e.id)).slice(0, 20), [eventsDone]);
@@ -47,6 +50,19 @@ function App() {
     Math.floor(hero.lv * 1.8)
   ), [treasureCount, foundDungeons, rivalsDefeated, boatOwned, pirateQuest, hero.lv]);
   const wonderRank = GD.WONDER_RANKS[Math.min(GD.WONDER_RANKS.length - 1, Math.floor(wonderScore / 160))];
+
+  const getQuestProgress = (q) => {
+    if (q.type === 'treasure') return treasureCount;
+    if (q.type === 'rival') return rivalsDefeated;
+    if (q.type === 'dungeon') return Object.keys(foundDungeons).length;
+    if (q.type === 'talk') return talkCount;
+    if (q.type === 'capture') return captureCount;
+    return 0;
+  };
+  const readyQuests = useMemo(
+    () => GD.QUEST_EVENTS.filter((q) => !eventsDone.includes(q.id) && getQuestProgress(q) >= q.target).slice(0, 12),
+    [eventsDone, treasureCount, rivalsDefeated, foundDungeons, talkCount, captureCount]
+  );
 
   const view = useMemo(() => {
     const rows = [];
@@ -70,19 +86,34 @@ function App() {
   }, [pos, collectedTreasure]);
 
   const saveData = (next = {}) => {
-    localStorage.setItem(GD.SAVE_KEY, JSON.stringify({
-      hero, party, guild, activeMon, pos, facing, encounterSteps, gil, inventory,
-      eventsDone, boatOwned, pirateQuest, foundDungeons, collectedTreasure,
-      dungeonState, endingCleared, claimedIron, ...next
-    }));
+    try {
+      localStorage.setItem(GD.SAVE_KEY, JSON.stringify({
+        schemaVersion: GD.SCHEMA_VERSION,
+        hero, party, guild, activeMon, pos, facing, encounterSteps, gil, inventory,
+        eventsDone, boatOwned, pirateQuest, foundDungeons, collectedTreasure,
+        dungeonState, endingCleared, claimedIron, talkCount, captureCount, ...next
+      }));
+      setSaveError('');
+    } catch (e) {
+      setSaveError('セーブに失敗しました。ストレージ状態を確認してください。');
+      console.error(e);
+    }
+  };
+
+  const migrateSave = (d) => {
+    if (!d || typeof d !== 'object') return null;
+    if (!d.schemaVersion) {
+      return { ...d, schemaVersion: 1, talkCount: 0, captureCount: 0 };
+    }
+    return d;
   };
 
   const loadData = () => {
     const s = localStorage.getItem(GD.SAVE_KEY);
     if (!s) return;
     try {
-      const d = JSON.parse(s);
-      if (d.party?.length) {
+      const d = migrateSave(JSON.parse(s));
+      if (d?.party?.length) {
         setHero(d.hero || hero);
         setParty(d.party);
         setGuild(d.guild || []);
@@ -100,9 +131,15 @@ function App() {
         setDungeonState(d.dungeonState || null);
         setEndingCleared(!!d.endingCleared);
         setClaimedIron(d.claimedIron || {});
+        setTalkCount(d.talkCount || 0);
+        setCaptureCount(d.captureCount || 0);
         setScreen('world');
+        setSaveError('');
       }
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+      setSaveError('セーブデータが壊れている可能性があります。新規開始してください。');
+    }
   };
 
   // 一旦、更新時は常に最初から開始（自動ロード無効）
@@ -194,7 +231,7 @@ function App() {
 
   const startGame = (starter) => {
     const m = GD.makeMonster({ ...starter, sp: GD.sprite(starter.id) }, 1);
-    setHero({ name: 'リンク', lv: 1, exp: 0, expToNext: 100, hpNow: 180, maxHp: 180, atk: 28, def: 16, mp: 30, weaponLv: 1 });
+    setHero({ name: 'ユウ', lv: 1, exp: 0, expToNext: 100, hpNow: 180, maxHp: 180, atk: 28, def: 16, mp: 30, weaponLv: 1 });
     setParty([m]);
     setGuild([]);
     setActiveMon(0);
@@ -216,7 +253,7 @@ function App() {
 
   const makeEnemy = (levelBase, forced) => {
     if (forced) return forced;
-    const base = MONSTER_CATALOG[Math.floor(Math.random() * MONSTER_CATALOG.length)];
+    const base = GD.MONSTER_CATALOG[Math.floor(Math.random() * GD.MONSTER_CATALOG.length)];
     return GD.makeMonster(base, Math.max(2, levelBase + Math.floor(Math.random() * 3) - 1));
   };
 
@@ -326,6 +363,7 @@ function App() {
   const talk = () => {
     const npc = GD.NPCS.find((n) => Math.abs(pos.x - n.x) + Math.abs(pos.y - n.y) <= 1);
     if (npc) {
+      setTalkCount((v) => v + 1);
       setLogs((l) => [`${npc.name}「${npc.line}」`, ...l].slice(0, 12));
       return;
     }
@@ -344,6 +382,7 @@ function App() {
       }
       return;
     }
+    setTalkCount((v) => v + 1);
     setLogs((l) => [`遠くから旅人の声が聞こえる…「${GD.NPC_LINES[Math.floor(Math.random() * GD.NPC_LINES.length)]}」`, ...l].slice(0, 12));
   };
 
@@ -368,6 +407,7 @@ function App() {
     const rate = Math.max(0.1, 0.72 - (enemy.hpNow / enemy.maxHp));
     if (Math.random() < rate) {
       const caught = { ...enemy, exp: 0, expToNext: 100 };
+      setCaptureCount((v) => v + 1);
       if (party.length < 3) {
         const np = [...party, caught];
         setParty(np);
@@ -513,6 +553,7 @@ function App() {
   return (
     <div className="app"><div className="phone-shell zelda-skin">
       <header className="header"><strong>Pocket Legend ✨</strong><span className="badge">ランク: {wonderRank} / ギル {gil}</span></header>
+      {saveError && <div className="panel save-error">{saveError}</div>}
 
       {screen === 'title' && <div className="screen-scroll center-col">
         <div className="panel title-panel"><h1>ポケット冒険ワールド</h1><p>任天堂級のワクワクを追求した冒険RPG</p><div className="sparkle">✦ ✧ ✦</div></div>
@@ -636,7 +677,7 @@ function App() {
           <div className="log">{logs.map((l, i) => <div key={`jl-${i}`}>{l}</div>)}</div>
           <div className="event-list">
             {GD.STORY_EVENTS.map((e) => <div key={e.id} className="event-item"><strong>{e.title}</strong><div>{e.text}</div></div>)}
-            {pendingEvents.slice(0, 12).map((ev) => <div key={ev.id} className="event-item"><strong>{ev.title}</strong><div>{ev.text}</div><button className="btn mini" onClick={() => addQuestReward(ev)}>達成</button></div>)}
+            {readyQuests.map((ev) => <div key={ev.id} className="event-item"><strong>{ev.title}</strong><div>{ev.text}</div><small>進捗 {getQuestProgress(ev)}/{ev.target}</small><button className="btn mini" onClick={() => addQuestReward(ev)}>達成</button></div>)}
           </div>
           <button className="btn" onClick={() => setShowJournal(false)}>閉じる</button>
         </div>

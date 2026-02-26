@@ -74,3 +74,5 @@ html,body{height:100%;margin:0;overflow:hidden;touch-action:none;overscroll-beha
   .event-list{max-height:120px}
   .dpad{grid-template-columns:48px 48px 48px;grid-template-rows:48px 48px 48px}
 }
+
+.save-error{margin:6px 10px;padding:8px;border-color:#b33;background:linear-gradient(180deg,#ffe2e2,#ffc8c8);color:#6d0000;font-size:12px}

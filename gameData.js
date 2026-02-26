@@ -6,6 +6,7 @@ const SAVE_KEY = 'mq_save_v9';
 const ITEM_CAPACITY = 99;
 const BALL_PRICE = 200;
 const POTION_PRICE = 100;
+const SCHEMA_VERSION = 2;
 
 const STARTERS = [
   { id: 4, name: 'ブレイズ', type: 'fire', hp: 120, atk: 26, def: 14 },
@@ -67,12 +68,19 @@ const STORY_EVENTS = [
   { id: 'dragon', title: '終焉の真龍', text: '世界の深部で真龍Lv100が目覚める。' }
 ];
 
-const QUEST_EVENTS = Array.from({ length: 200 }, (_, i) => ({
-  id: `q${i + 1}`,
-  title: `サブ依頼 ${i + 1}`,
-  text: `地方の依頼 ${i + 1} を達成して報酬を得る。`,
-  rewardGil: 40 + (i % 15) * 18
-}));
+const QUEST_TYPES = ['treasure', 'rival', 'dungeon', 'talk', 'capture'];
+const QUEST_EVENTS = Array.from({ length: 200 }, (_, i) => {
+  const type = QUEST_TYPES[i % QUEST_TYPES.length];
+  const target = type === 'treasure' ? 10 + (i % 12) * 2 : type === 'rival' ? 2 + (i % 8) : type === 'dungeon' ? 1 + (i % 5) : type === 'talk' ? 8 + (i % 10) : 3 + (i % 7);
+  return {
+    id: `q${i + 1}`,
+    title: `サブ依頼 ${i + 1}`,
+    text: `地方の依頼 ${i + 1} を達成して報酬を得る。`,
+    rewardGil: 40 + (i % 15) * 18,
+    type,
+    target
+  };
+});
 
 const seeded = (seed) => {
   let s = seed;
@@ -235,6 +243,6 @@ window.GameData = {
   VIEW_W, VIEW_H, W, H, SAVE_KEY, ITEM_CAPACITY, BALL_PRICE, POTION_PRICE,
   STARTERS, TYPE_MULT, TOWNS, TOWN_DETAILS, RIVALS, INTRO_EVENTS, WONDER_RANKS,
   RIVAL_LINES, DRAGON_LINES, NPC_LINES, AREA_LEVELS, STORY_EVENTS, QUEST_EVENTS,
-  WORLD, NPCS, IRON_SPOTS, sprite, makeMonster, biomeFromTile, townByCell,
+  MONSTER_CATALOG, SCHEMA_VERSION, WORLD, NPCS, IRON_SPOTS, sprite, makeMonster, biomeFromTile, townByCell,
   totalItemCount, smithCost, canWalk
 };
