@@ -70,13 +70,17 @@ const seeded = (seed) => {
 
 const sprite = (id) => `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`;
 
+const NAME_PREFIX = ['フレア', 'アクア', 'リーフ', 'シャドウ', 'ライト', 'ストーン', 'スカイ', 'サンダー', 'ミスト', 'ブレイズ', 'ルナ', 'ソル', 'アイアン', 'クリムゾン', 'シルバー', 'ゴールド', 'ウィンド', 'ストーム', 'サクラ', 'ネビュラ'];
+const NAME_SUFFIX = ['ウルフ', 'ドラ', 'バード', 'リザード', 'フェアリ', 'タイガ', 'フォックス', 'ゴーレム', 'スライム', 'ナイト'];
+
 const buildMonsterCatalog = () => {
   const arr = [];
   for (let i = 1; i <= 200; i++) {
     const type = i % 3 === 0 ? 'fire' : i % 3 === 1 ? 'water' : 'grass';
+    const name = `${NAME_PREFIX[Math.floor((i - 1) / 10)]}${NAME_SUFFIX[(i - 1) % 10]}`;
     arr.push({
       id: i,
-      name: `モンスター${i}`,
+      name,
       type,
       hp: 90 + (i % 35),
       atk: 18 + (i % 20),
@@ -216,6 +220,7 @@ function App() {
   const [collectedTreasure, setCollectedTreasure] = useState({});
   const [showBag, setShowBag] = useState(false);
   const [showStatus, setShowStatus] = useState(false);
+  const [showJournal, setShowJournal] = useState(false);
   const [townId, setTownId] = useState(null);
   const [dungeonState, setDungeonState] = useState(null);
 
@@ -277,14 +282,19 @@ function App() {
     } catch (e) { console.error(e); }
   };
 
-  useEffect(loadData, []);
+  // 一旦、更新時は常に最初から開始（自動ロード無効）
+  useEffect(() => {
+    setScreen('title');
+  }, []);
 
   useEffect(() => {
     if (screen !== 'battle' || turn !== 'enemy' || !enemy || !currentMon) return;
     const t = setTimeout(() => {
       const targetHero = hero.hpNow > 0 && (currentMon.hpNow <= 0 || Math.random() < 0.55);
+      let heroHpAfter = hero.hpNow;
       if (targetHero) {
         const d = Math.max(6, Math.floor(enemy.atkNow - hero.def * 0.55 + Math.random() * 8));
+        heroHpAfter = Math.max(0, hero.hpNow - d);
         setHero((h) => ({ ...h, hpNow: Math.max(0, h.hpNow - d) }));
         setLogs((l) => [`${enemy.name}の攻撃！ リンクに${d}ダメージ`, ...l].slice(0, 12));
       } else {
@@ -295,7 +305,7 @@ function App() {
         setParty(np);
         setLogs((l) => [`${enemy.name}の攻撃！ ${currentMon.name}に${d}ダメージ`, ...l].slice(0, 12));
       }
-      setTurn('hero');
+      setTurn(heroHpAfter <= 0 && currentMon.hpNow > 0 ? 'monster' : 'hero');
     }, 450);
     return () => clearTimeout(t);
   }, [screen, turn, enemy, hero, currentMon, party, activeMon]);
@@ -432,9 +442,9 @@ function App() {
     if (tile === 's') {
       const dungeon = WORLD.dungeons.find((d) => d.x === nx && d.y === ny);
       if (dungeon) {
-        setDungeonState({ dungeonId: dungeon.id, name: dungeon.name, floor: 5, entryLv: Math.max(hero.lv, currentMon.lv), clearedBossFloors: {} });
+        setDungeonState({ dungeonId: dungeon.id, name: dungeon.name, floor: dungeon.id === 'd1' ? 1 : 5, entryLv: Math.max(hero.lv, currentMon.lv), clearedBossFloors: {} });
         setScreen('dungeon');
-        setLogs((l) => [`${dungeon.name}に突入！ 地下5Fから開始`, ...l].slice(0, 12));
+        setLogs((l) => [`${dungeon.name}に突入！ 地下${dungeon.id === 'd1' ? 1 : 5}Fから開始`, ...l].slice(0, 12));
         setTimeout(() => setWalking(false), 120);
         return;
       }
@@ -495,7 +505,7 @@ function App() {
   };
 
   const capture = () => {
-    if (turn !== 'hero' || !enemy || inventory.ball <= 0 || battleMode !== 'wild') return;
+    if (turn !== 'hero' || !enemy || inventory.ball <= 0 || battleMode !== 'wild' || hero.hpNow <= 0) return;
     const inv = { ...inventory, ball: inventory.ball - 1 };
     setInventory(inv);
     const rate = Math.max(0.1, 0.72 - (enemy.hpNow / enemy.maxHp));
@@ -518,7 +528,7 @@ function App() {
   };
 
   const heroAttack = () => {
-    if (turn !== 'hero' || !enemy) return;
+    if (turn !== 'hero' || !enemy || hero.hpNow <= 0) return;
     const d = Math.max(8, Math.floor((hero.atk + hero.weaponLv * 3) - enemy.defNow * 0.45 + Math.random() * 10));
     setEnemy({ ...enemy, hpNow: Math.max(0, enemy.hpNow - d) });
     setLogs((l) => [`リンクの剣撃！ ${d}ダメージ`, ...l].slice(0, 12));
@@ -526,7 +536,7 @@ function App() {
   };
 
   const heroSkill = () => {
-    if (turn !== 'hero' || hero.mp < 8 || !enemy) return;
+    if (turn !== 'hero' || hero.mp < 8 || !enemy || hero.hpNow <= 0) return;
     const d = Math.max(14, Math.floor((hero.atk + hero.weaponLv * 2) * 1.35 - enemy.defNow * 0.35 + Math.random() * 8));
     setHero({ ...hero, mp: hero.mp - 8 });
     setEnemy({ ...enemy, hpNow: Math.max(0, enemy.hpNow - d) });
@@ -535,7 +545,7 @@ function App() {
   };
 
   const usePotion = () => {
-    if (turn !== 'hero' || inventory.potion <= 0) return;
+    if (turn !== 'hero' || inventory.potion <= 0 || hero.hpNow <= 0) return;
     setHero((h) => ({ ...h, hpNow: Math.min(h.maxHp, h.hpNow + 65) }));
     setInventory((i) => ({ ...i, potion: i.potion - 1 }));
     setLogs((l) => ['ポーションでリンクが回復！', ...l].slice(0, 12));
@@ -622,9 +632,14 @@ function App() {
 
   const dungeonMove = (delta) => {
     if (!dungeonState) return;
-    const nf = Math.max(5, Math.min(50, dungeonState.floor + delta));
+    const minFloor = dungeonState.dungeonId === 'd1' ? 1 : 5;
+    const nf = Math.max(minFloor, Math.min(50, dungeonState.floor + delta));
     setDungeonState((d) => ({ ...d, floor: nf }));
     setLogs((l) => [`${dungeonState.name} 地下${nf}Fへ`, ...l].slice(0, 12));
+    if (delta > 0 && dungeonState.dungeonId === 'd1') {
+      const lv = dungeonState.entryLv + Math.floor(nf / 2);
+      triggerEncounter(makeEnemy(lv), 'wild', 'dungeon');
+    }
   };
 
   const renderTileIcon = (cell) => {
@@ -678,9 +693,6 @@ function App() {
 
         <div className="panel dq-message">{logs[0]}</div>
 
-        <div className="panel map-legend"><strong>地形ガイド</strong>
-          <div>🌿平原 / 🌾草むら / 🌲深林 / ⛰️山(通行不可) / 🌊海(船で通行) / 🏘️町 / 🕍隠しダンジョン / 📦宝箱 / 🐉真龍</div>
-        </div>
 
         <div className="dq-controls">
           <div className="panel dq-command-grid">
@@ -689,7 +701,7 @@ function App() {
             <button className="btn mini" onClick={() => setShowBag(true)}>もちもの</button>
             <button className="btn mini" onClick={() => setShowStatus(true)}>ステータス</button>
             <button className="btn mini" onClick={triggerEncounter}>たたかう</button>
-            <button className="btn mini" onClick={() => setScreen('town')}>町にもどる</button>
+            <button className="btn mini" onClick={() => setShowJournal(true)}>イベントログ</button>
           </div>
           <div className="dpad dq-dpad">
             <div /> <button className="btn" onClick={() => move(0, -1, 'up')}>▲</button> <div />
@@ -698,12 +710,6 @@ function App() {
           </div>
         </div>
 
-        <div className="panel event-panel"><strong>イベント（見やすい一覧）</strong>
-          <div className="event-list">
-            {STORY_EVENTS.map((e) => <div key={e.id} className="event-item"><strong>{e.title}</strong><div>{e.text}</div></div>)}
-            {pendingEvents.map((ev) => <div key={ev.id} className="event-item"><strong>{ev.title}</strong><div>{ev.text}</div><button className="btn mini" onClick={() => addQuestReward(ev)}>達成</button></div>)}
-          </div>
-        </div>
       </div>}
 
       {screen === 'town' && <div className="screen-scroll">
@@ -720,7 +726,7 @@ function App() {
       </div>}
 
       {screen === 'dungeon' && dungeonState && <div className="screen-scroll">
-        <div className="panel"><strong>{dungeonState.name}</strong><p>地下{dungeonState.floor}F / 入場時基準Lv {dungeonState.entryLv} / 5Fごとにボス</p></div>
+        <div className="panel"><strong>{dungeonState.name}</strong><p>地下{dungeonState.floor}F / 入場時基準Lv {dungeonState.entryLv} / 5Fごとにボス（古代遺跡は1F開始）</p></div>
         <div className="panel dungeon-ops">
           <button className="btn" onClick={() => dungeonMove(-1)}>上階へ</button>
           <button className="btn" onClick={dungeonStep}>探索する</button>
@@ -747,10 +753,10 @@ function App() {
         <div className="log">{logs.map((l, i) => <div key={i}>{l}</div>)}</div>
 
         <div className="grid battle-actions">
-          <button className="btn" onClick={heroAttack} disabled={turn !== 'hero'}>リンク攻撃</button>
-          <button className="btn" onClick={heroSkill} disabled={turn !== 'hero' || hero.mp < 8}>回転斬り</button>
-          <button className="btn" onClick={usePotion} disabled={turn !== 'hero' || inventory.potion <= 0}>ポーション({inventory.potion})</button>
-          <button className="btn" onClick={capture} disabled={turn !== 'hero' || inventory.ball <= 0 || battleMode !== 'wild'}>捕獲({inventory.ball})</button>
+          <button className="btn" onClick={heroAttack} disabled={turn !== 'hero' || hero.hpNow <= 0}>リンク攻撃</button>
+          <button className="btn" onClick={heroSkill} disabled={turn !== 'hero' || hero.mp < 8 || hero.hpNow <= 0}>回転斬り</button>
+          <button className="btn" onClick={usePotion} disabled={turn !== 'hero' || inventory.potion <= 0 || hero.hpNow <= 0}>ポーション({inventory.potion})</button>
+          <button className="btn" onClick={capture} disabled={turn !== 'hero' || inventory.ball <= 0 || battleMode !== 'wild' || hero.hpNow <= 0}>捕獲({inventory.ball})</button>
           <button className="btn" onClick={monAttack} disabled={turn !== 'monster'}>{currentMon.name}攻撃</button>
           <button className="btn" onClick={() => setScreen(dungeonState ? 'dungeon' : 'world')}>にげる</button>
         </div>
@@ -761,6 +767,18 @@ function App() {
           <h3>もちもの ({totalItemCount(inventory)}/{ITEM_CAPACITY})</h3>
           {Object.entries(inventory).map(([k, v]) => <div key={k} className="bag-row"><span>{k}</span><strong>{v}</strong></div>)}
           <button className="btn" onClick={() => setShowBag(false)}>閉じる</button>
+        </div>
+      </div>}
+
+      {showJournal && <div className="overlay" onClick={() => setShowJournal(false)}>
+        <div className="panel status" onClick={(e) => e.stopPropagation()}>
+          <h3>イベントログ</h3>
+          <div className="log">{logs.map((l, i) => <div key={`jl-${i}`}>{l}</div>)}</div>
+          <div className="event-list">
+            {STORY_EVENTS.map((e) => <div key={e.id} className="event-item"><strong>{e.title}</strong><div>{e.text}</div></div>)}
+            {pendingEvents.slice(0, 12).map((ev) => <div key={ev.id} className="event-item"><strong>{ev.title}</strong><div>{ev.text}</div><button className="btn mini" onClick={() => addQuestReward(ev)}>達成</button></div>)}
+          </div>
+          <button className="btn" onClick={() => setShowJournal(false)}>閉じる</button>
         </div>
       </div>}
 
