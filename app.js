@@ -49,6 +49,8 @@ const INTRO_EVENTS = [
   '宝箱と隠しダンジョンを見つけ、最強の冒険者を目指せ！'
 ];
 
+const WONDER_RANKS = ['旅立ち', '冒険者', '英雄候補', '王国の希望', '伝説', 'マーベラス'];
+
 const STORY_EVENTS = [
   { id: 'pirate_start', title: '港町の依頼', text: '海賊に娘がさらわれた。東のアジトへ向かえ！' },
   { id: 'pirate_clear', title: '救出完了', text: '娘を救出！ 港町へ戻って報告しよう。' },
@@ -217,6 +219,7 @@ function App() {
   const [boatOwned, setBoatOwned] = useState(false);
   const [pirateQuest, setPirateQuest] = useState({ accepted: false, rescued: false, complete: false });
   const [foundDungeons, setFoundDungeons] = useState({});
+  const [rivalsDefeated, setRivalsDefeated] = useState(0);
   const [collectedTreasure, setCollectedTreasure] = useState({});
   const [showBag, setShowBag] = useState(false);
   const [showStatus, setShowStatus] = useState(false);
@@ -227,6 +230,15 @@ function App() {
   const currentMon = party[activeMon];
   const pendingEvents = useMemo(() => QUEST_EVENTS.filter((e) => !eventsDone.includes(e.id)).slice(0, 20), [eventsDone]);
   const treasureCount = Object.keys(collectedTreasure).length;
+  const wonderScore = useMemo(() => (
+    treasureCount * 2 +
+    Object.keys(foundDungeons).length * 40 +
+    rivalsDefeated * 25 +
+    (boatOwned ? 30 : 0) +
+    (pirateQuest.complete ? 40 : 0) +
+    Math.floor(hero.lv * 1.8)
+  ), [treasureCount, foundDungeons, rivalsDefeated, boatOwned, pirateQuest, hero.lv]);
+  const wonderRank = WONDER_RANKS[Math.min(WONDER_RANKS.length - 1, Math.floor(wonderScore / 160))];
 
   const view = useMemo(() => {
     const rows = [];
@@ -343,6 +355,7 @@ function App() {
     };
 
     const addGil = battleMode === 'boss' ? 10000 : battleMode === 'rival' ? 1000 : gain;
+    if (battleMode === 'rival') setRivalsDefeated((v) => v + 1);
     setHero(newHero); setParty(np); setGil((g) => g + addGil);
     if (screen === 'battle') setScreen(dungeonState ? 'dungeon' : 'world');
     setLogs((l) => [`${enemy.name}を倒した！ ヒーロー/仲間に${gain}EXP`, ...l].slice(0, 12));
@@ -388,7 +401,8 @@ function App() {
     setEnemy(e);
     setTurn('hero');
     setScreen('battle');
-    setLogs((l) => [`エンカウント！ ${e.name} が現れた`, ...l].slice(0, 12));
+    const prefix = mode === 'boss' ? '★ボス襲来！' : mode === 'rival' ? '◆ライバル戦！' : '◇エンカウント！';
+    setLogs((l) => [`${prefix} ${e.name} が現れた`, ...l].slice(0, 12));
   };
 
   const checkDiscover = (x, y) => {
@@ -529,9 +543,11 @@ function App() {
 
   const heroAttack = () => {
     if (turn !== 'hero' || !enemy || hero.hpNow <= 0) return;
-    const d = Math.max(8, Math.floor((hero.atk + hero.weaponLv * 3) - enemy.defNow * 0.45 + Math.random() * 10));
+    const crit = Math.random() < 0.16;
+    const raw = Math.max(8, Math.floor((hero.atk + hero.weaponLv * 3) - enemy.defNow * 0.45 + Math.random() * 10));
+    const d = crit ? Math.floor(raw * 1.7) : raw;
     setEnemy({ ...enemy, hpNow: Math.max(0, enemy.hpNow - d) });
-    setLogs((l) => [`リンクの剣撃！ ${d}ダメージ`, ...l].slice(0, 12));
+    setLogs((l) => [`リンクの剣撃！ ${d}ダメージ${crit ? '（クリティカル！）' : ''}`, ...l].slice(0, 12));
     setTurn(currentMon?.hpNow > 0 ? 'monster' : 'enemy');
   };
 
@@ -555,9 +571,11 @@ function App() {
   const monAttack = () => {
     if (turn !== 'monster' || !enemy || !currentMon) return;
     const m = TYPE_MULT[currentMon.type]?.[enemy.type] || 1;
-    const d = Math.max(7, Math.floor(currentMon.atkNow * m - enemy.defNow * 0.45 + Math.random() * 10));
+    const crit = Math.random() < 0.12;
+    const raw = Math.max(7, Math.floor(currentMon.atkNow * m - enemy.defNow * 0.45 + Math.random() * 10));
+    const d = crit ? Math.floor(raw * 1.55) : raw;
     setEnemy({ ...enemy, hpNow: Math.max(0, enemy.hpNow - d) });
-    setLogs((l) => [`${currentMon.name}のアタック！ ${d}ダメージ`, ...l].slice(0, 12));
+    setLogs((l) => [`${currentMon.name}のアタック！ ${d}ダメージ${crit ? '（会心！）' : ''}`, ...l].slice(0, 12));
     setTurn('enemy');
   };
 
@@ -651,10 +669,10 @@ function App() {
 
   return (
     <div className="app"><div className="phone-shell zelda-skin">
-      <header className="header"><strong>Pocket Legend</strong><span className="badge">ギル {gil}</span></header>
+      <header className="header"><strong>Pocket Legend ✨</strong><span className="badge">ランク: {wonderRank} / ギル {gil}</span></header>
 
       {screen === 'title' && <div className="screen-scroll center-col">
-        <div className="panel title-panel"><h1>ポケット冒険ワールド</h1><p>固定画面・探索・ターンバトル</p></div>
+        <div className="panel title-panel"><h1>ポケット冒険ワールド</h1><p>任天堂級のワクワクを追求した冒険RPG</p><div className="sparkle">✦ ✧ ✦</div></div>
         <button className="btn" onClick={() => setScreen('starter')}>冒険開始</button>
       </div>}
 
@@ -692,7 +710,7 @@ function App() {
         </div>
 
         <div className="panel dq-message">{logs[0]}</div>
-
+        <div className="panel wonder-panel">冒険ワクワク指数: <strong>{wonderScore}</strong> / 現在ランク: <strong>{wonderRank}</strong> / ライバル撃破: {rivalsDefeated}</div>
 
         <div className="dq-controls">
           <div className="panel dq-command-grid">
@@ -772,7 +790,7 @@ function App() {
 
       {showJournal && <div className="overlay" onClick={() => setShowJournal(false)}>
         <div className="panel status" onClick={(e) => e.stopPropagation()}>
-          <h3>イベントログ</h3>
+          <h3>イベントログ</h3><p>エグゼクティブレビュー用: 進行・戦績・達成項目をここで確認できます。</p>
           <div className="log">{logs.map((l, i) => <div key={`jl-${i}`}>{l}</div>)}</div>
           <div className="event-list">
             {STORY_EVENTS.map((e) => <div key={e.id} className="event-item"><strong>{e.title}</strong><div>{e.text}</div></div>)}
