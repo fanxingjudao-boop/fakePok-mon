@@ -3,20 +3,94 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#183f27" />
-  <title>Pocket Legend RPG</title>
+  <meta name="theme-color" content="#202030" />
+  <title>ポケットレジェンド 碧の章</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div id="root"></div>
+  <div id="console">
+    <div id="screen-frame">
+      <canvas id="screen" width="480" height="352"></canvas>
 
-  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+      <!-- タイトル -->
+      <div id="title-screen" class="fullveil hidden">
+        <div class="title-logo">
+          <div class="title-top">ポケットレジェンド</div>
+          <div class="title-sub">〜 碧 の 章 〜</div>
+        </div>
+        <canvas id="title-mon" width="96" height="96"></canvas>
+        <div class="title-press blink">PRESS&nbsp;A&nbsp;BUTTON</div>
+        <div id="title-menu" class="menu-box hidden"></div>
+        <div class="title-copy">©2026 FAKEPOK PROJECT</div>
+      </div>
 
-  <!-- Architecture layer: data & world model -->
-  <script src="gameData.js"></script>
-  <!-- Application layer -->
-  <script type="text/babel" src="app.js"></script>
+      <!-- 汎用フェード -->
+      <div id="fader" class="fullveil fade hidden"></div>
+
+      <!-- バトル画面 -->
+      <div id="battle" class="fullveil hidden">
+        <div id="battle-bg"></div>
+        <div id="enemy-box" class="info-box">
+          <div class="ib-name"><span id="e-name"></span><span id="e-lv"></span></div>
+          <div class="hp-row"><span class="hp-tag">HP</span>
+            <div class="hp-bar"><div id="e-hp" class="hp-fill"></div></div>
+          </div>
+          <div id="e-status" class="status-chip"></div>
+        </div>
+        <div id="enemy-stage"><canvas id="e-sprite" width="128" height="128"></canvas></div>
+        <div id="player-stage"><canvas id="p-sprite" width="144" height="144"></canvas></div>
+        <div id="player-box" class="info-box">
+          <div class="ib-name"><span id="p-name"></span><span id="p-lv"></span></div>
+          <div class="hp-row"><span class="hp-tag">HP</span>
+            <div class="hp-bar"><div id="p-hp" class="hp-fill"></div></div>
+          </div>
+          <div class="hp-num"><span id="p-hpnum"></span><span id="p-status" class="status-chip"></span></div>
+          <div class="exp-row"><span class="exp-tag">EXP</span>
+            <div class="exp-bar"><div id="p-exp" class="exp-fill"></div></div>
+          </div>
+        </div>
+        <div id="ball-toss" class="hidden">●</div>
+      </div>
+
+      <!-- メッセージボックス -->
+      <div id="msgbox" class="hidden">
+        <div id="msgtext"></div>
+        <div id="msgnext" class="blink hidden">▼</div>
+      </div>
+
+      <!-- 汎用メニュー -->
+      <div id="menu-root"></div>
+
+      <!-- 進化・殿堂入りなどの演出レイヤ -->
+      <div id="cine" class="fullveil hidden"></div>
+    </div>
+
+    <div id="pads">
+      <div id="dpad">
+        <button data-key="up" class="pad-btn up">▲</button>
+        <button data-key="left" class="pad-btn left">◀</button>
+        <button data-key="right" class="pad-btn right">▶</button>
+        <button data-key="down" class="pad-btn down">▼</button>
+        <div class="pad-center"></div>
+      </div>
+      <div id="sysbtns">
+        <button data-key="start" class="sys-btn">START</button>
+        <button id="mute-btn" class="sys-btn">♪ON</button>
+      </div>
+      <div id="ab">
+        <button data-key="b" class="ab-btn b">B</button>
+        <button data-key="a" class="ab-btn a">A</button>
+      </div>
+    </div>
+    <div class="hint">移動:十字キー / けってい:A(Z) / キャンセル:B(X) / メニュー:START(Enter)</div>
+  </div>
+
+  <script src="audio.js"></script>
+  <script src="data.js"></script>
+  <script src="sprites.js"></script>
+  <script src="battle.js"></script>
+  <script src="game.js"></script>
 </body>
 </html>
