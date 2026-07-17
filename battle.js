@@ -126,9 +126,31 @@
     $('player-stage').className = '';
   }
 
-  async function animateHit(targetIsEnemy, mult) {
+  async function lungeAnim(isPlayerAttacking) {
+    const stage = $(isPlayerAttacking ? 'player-stage' : 'enemy-stage');
+    stage.classList.add(isPlayerAttacking ? 'lunge-p' : 'lunge-e');
+    await sleep(260);
+    stage.classList.remove('lunge-p', 'lunge-e');
+  }
+
+  function burstFx(targetIsEnemy, color) {
+    const b = document.createElement('div');
+    b.className = 'fx-burst';
+    b.style.color = color || '#f8f0d0';
+    if (targetIsEnemy) { b.style.left = '344px'; b.style.top = '70px'; }
+    else { b.style.left = '114px'; b.style.top = '178px'; }
+    $('battle').appendChild(b);
+    setTimeout(() => b.remove(), 500);
+  }
+
+  async function animateHit(targetIsEnemy, mult, color) {
     const stage = $(targetIsEnemy ? 'enemy-stage' : 'player-stage');
     window.AudioSys.sfx(mult > 1 ? 'hitSuper' : mult < 1 ? 'hitWeak' : 'hit');
+    burstFx(targetIsEnemy, color);
+    if (mult > 1) {
+      $('battle').classList.add('shake-hard');
+      setTimeout(() => $('battle').classList.remove('shake-hard'), 450);
+    }
     stage.classList.add('blink-hit');
     await sleep(360);
     stage.classList.remove('blink-hit');
@@ -175,6 +197,9 @@
     if (m.status) { await bsay(`しかし ${monName(m)}には こうかが なかった！`); return; }
     m.status = status;
     if (status === 'slp') m.sleepTurns = 1 + Math.floor(Math.random() * 3);
+    const stage = $(target === B.enemy ? 'enemy-stage' : 'player-stage');
+    stage.classList.add('status-pulse');
+    setTimeout(() => stage.classList.remove('status-pulse'), 650);
     const text = { psn: 'どくを あびた！', par: 'からだが まひして わざが でにくくなった！', brn: 'やけどを おった！', slp: 'ねむってしまった！' }[status];
     await bsay(`${monName(m)}は ${text}`);
     refreshEnemyUI(); refreshPlayerUI();
@@ -214,7 +239,8 @@
     if (move.cat === 'phys') {
       const { dmg, mult, crit } = calcDamage(attacker, defender, move);
       if (mult === 0) { await bsay(`${monName(defender.mon)}には こうかが ない みたいだ…`); return; }
-      await animateHit(!isPlayerAttacking ? false : true, mult);
+      await lungeAnim(isPlayerAttacking);
+      await animateHit(isPlayerAttacking, mult, GD().TYPES[move.type].color);
       defender.mon.hp = Math.max(0, defender.mon.hp - dmg);
       refreshEnemyUI(); refreshPlayerUI();
       await sleep(350);

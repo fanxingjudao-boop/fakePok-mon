@@ -181,18 +181,26 @@
     revive:      { name: 'げんきのかけら',   price: 1500, kind: 'revive' }
   };
   const MART_STOCK = {
-    minamo: ['ball', 'potion', 'antidote', 'parlyzheal'],
-    hibana: ['ball', 'potion', 'superpotion', 'awakening', 'burnheal', 'parlyzheal'],
-    raiden: ['ball', 'superball', 'superpotion', 'fullheal', 'parlyzheal'],
-    iwado:  ['superball', 'superpotion', 'hyperpotion', 'fullheal', 'revive']
+    minamo:    ['ball', 'potion', 'antidote', 'parlyzheal'],
+    hanazono:  ['ball', 'potion', 'antidote', 'awakening', 'parlyzheal'],
+    hibana:    ['ball', 'potion', 'superpotion', 'awakening', 'burnheal', 'parlyzheal'],
+    kazemine:  ['ball', 'superball', 'superpotion', 'fullheal', 'parlyzheal'],
+    raiden:    ['ball', 'superball', 'superpotion', 'fullheal', 'parlyzheal'],
+    yomigaoka: ['superball', 'superpotion', 'fullheal', 'burnheal', 'revive'],
+    iwado:     ['superball', 'superpotion', 'hyperpotion', 'fullheal', 'revive'],
+    tsukimi:   ['superball', 'hyperpotion', 'fullheal', 'revive']
   };
 
-  /* ---------------- バッジ ---------------- */
+  /* ---------------- バッジ (8個) ---------------- */
   const BADGES = [
     { id: 'badge1', name: 'しずくバッジ',   color: '#48a8e8' },
-    { id: 'badge2', name: 'ひだねバッジ',   color: '#e86840' },
-    { id: 'badge3', name: 'いかずちバッジ', color: '#e8c020' },
-    { id: 'badge4', name: 'がんせきバッジ', color: '#a89058' }
+    { id: 'badge2', name: 'リーフバッジ',   color: '#58b048' },
+    { id: 'badge3', name: 'ひだねバッジ',   color: '#e86840' },
+    { id: 'badge4', name: 'つばさバッジ',   color: '#a890f0' },
+    { id: 'badge5', name: 'いかずちバッジ', color: '#e8c020' },
+    { id: 'badge6', name: 'たそがれバッジ', color: '#705898' },
+    { id: 'badge7', name: 'がんせきバッジ', color: '#a89058' },
+    { id: 'badge8', name: 'みかづきバッジ', color: '#c0c0d0' }
   ];
 
   /* ---------------- マップ ---------------- */
@@ -469,9 +477,9 @@
     warps: [],
     edgeExits: {
       left: { tiles: [[0, 6]], to: 'minamo', tx: 20, ty: 9 },
-      right: { tiles: [[29, 6]], to: 'hibana', tx: 1, ty: 9 }
+      right: { tiles: [[29, 6]], to: 'hanazono', tx: 1, ty: 9 }
     },
-    signs: { '15,3': 'ルート2\nミナモシティ ⇔ ヒバナシティ' },
+    signs: { '15,3': 'ルート2\nミナモシティ ⇔ ハナゾノシティ' },
     npcs: [
       { id: 'r2_kid', kind: 'npc', skin: 'boy2', x: 14, y: 6, dir: 'down', role: 'gruntsKid',
         text: ['ダークスターだんの ヤツらが ぼくの デンネコを うばおうと したんだ…！'] }
@@ -502,39 +510,115 @@
     ]
   };
 
+  MAPS.hanazono = {
+    ...cityBase('hanazono', 'ハナゾノシティ', '#58a848'),
+    edgeExits: {
+      left: { tiles: [[0, 9]], to: 'route2', tx: 28, ty: 6 },
+      right: { tiles: [[21, 9]], to: 'route5', tx: 1, ty: 6 }
+    },
+    signs: { '3,7': 'ハナゾノシティ\n「はなの かおりに つつまれた まち」' },
+    npcs: [
+      { id: 'hz_girl', kind: 'npc', skin: 'girl', x: 16, y: 11, dir: 'down',
+        text: ['ジムリーダーの ボタンさんは くさタイプの めいじんよ。', 'ほのおタイプか ひこうタイプが いると らくに たたかえるわ。'] },
+      { id: 'hz_man', kind: 'npc', skin: 'man', x: 6, y: 6, dir: 'down',
+        text: ['ひがしの ルート5を ぬけると ヒバナシティだ。'] }
+    ],
+    trainers: []
+  };
+
+  MAPS.route5 = {
+    id: 'route5', name: 'ルート5', rows: ROUTE2_ROWS, outdoor: true, music: 'route',
+    encounters: { rate: 0.13, list: [[14, 12, 15, 30], [12, 12, 15, 30], [20, 13, 16, 20], [10, 12, 14, 20]] },
+    warps: [],
+    edgeExits: {
+      left: { tiles: [[0, 6]], to: 'hanazono', tx: 20, ty: 9 },
+      right: { tiles: [[29, 6]], to: 'hibana', tx: 1, ty: 9 }
+    },
+    signs: { '15,3': 'ルート5\nハナゾノシティ ⇔ ヒバナシティ' },
+    npcs: [],
+    trainers: [
+      TR('r5_girl', { name: 'ミニスカートの アオイ', skin: 'girl', x: 11, y: 6, dir: 'left',
+        team: [[14, 13], [12, 14]], money: 300,
+        pre: ['おはなに かこまれて しょうぶ しましょ！'], lose: ['はなびらが ちっちゃう〜！'],
+        after: ['ねむりごなを うけたら ねむけざましが たよりになるわ。'] }),
+      TR('r5_boy', { name: 'むしとりしょうねんの マコト', skin: 'boy2', x: 22, y: 6, dir: 'left',
+        team: [[16, 14], [16, 15]], money: 280,
+        pre: ['ビリムシ 2ひきの でんげきコンボだ！'], lose: ['ショートしちゃった…'],
+        after: ['ヒバナシティの ジムは ほのおタイプ。みずが あると あんしんだよ。'] })
+    ]
+  };
+
   MAPS.hibana = {
     ...cityBase('hibana', 'ヒバナシティ', '#c86028'),
     edgeExits: {
-      left: { tiles: [[0, 9]], to: 'route2', tx: 28, ty: 6 },
-      right: { tiles: [[21, 9]], to: 'route3', tx: 1, ty: 7 }
+      left: { tiles: [[0, 9]], to: 'route5', tx: 28, ty: 6 },
+      right: { tiles: [[21, 9]], to: 'route6', tx: 1, ty: 6 }
     },
     signs: { '3,7': 'ヒバナシティ\n「ひだねが ともる かじの まち」' },
     npcs: [
       { id: 'hb_man', kind: 'npc', skin: 'man', x: 16, y: 11, dir: 'down',
-        text: ['ひがしの ビリビリどうくつを ぬけると ライデンシティだ。', 'どうくつには でんきモンスターが おおいぞ。'] },
+        text: ['ひがしの ルート6の さきは かぜのまち カゼミネシティだ。', 'そらを とぶ モンスターが おおい みちだぞ。'] },
       { id: 'hb_girl', kind: 'npc', skin: 'girl', x: 6, y: 6, dir: 'down',
         text: ['やけどには やけどなおし！ おみせで うってるわ。'] }
     ],
     trainers: []
   };
 
-  MAPS.route3 = {
-    id: 'route3', name: 'ビリビリどうくつ', rows: ROUTE3_ROWS, outdoor: false, cave: true, music: 'cave',
-    encounters: { rate: 0.16, list: [[16, 13, 16, 40], [18, 13, 16, 35], [20, 14, 17, 25]] },
+  MAPS.route6 = {
+    id: 'route6', name: 'ルート6', rows: ROUTE4_ROWS, outdoor: true, music: 'route',
+    encounters: { rate: 0.13, list: [[25, 17, 20, 30], [12, 17, 19, 25], [27, 18, 21, 25], [24, 17, 20, 20]] },
     warps: [],
     edgeExits: {
-      left: { tiles: [[0, 7]], to: 'hibana', tx: 20, ty: 9 },
+      left: { tiles: [[0, 6]], to: 'hibana', tx: 20, ty: 9 },
+      right: { tiles: [[27, 6]], to: 'kazemine', tx: 1, ty: 9 }
+    },
+    signs: { '3,4': 'ルート6\nヒバナシティ ⇔ カゼミネシティ' },
+    npcs: [],
+    trainers: [
+      TR('r6_bird', { name: 'とりつかいの ハヤテ', skin: 'man', x: 14, y: 6, dir: 'left',
+        team: [[12, 18], [25, 19]], money: 450,
+        pre: ['かぜを よむのは とくいなんだ！ いくぞ！'], lose: ['かぜむきが かわったか…'],
+        after: ['カゼミネジムの カザミさんは ひこうタイプの つかいてだ。'] }),
+      TR('r6_kid', { name: 'エリートこぞうの ジュン', skin: 'boy2', x: 22, y: 8, dir: 'left',
+        team: [[27, 19], [10, 18]], money: 420,
+        pre: ['ヒノコマの スピードに ついてこれるかな！'], lose: ['はやさだけじゃ ダメか…'],
+        after: ['でんきわざは ひこうタイプに ばつぐんだよ。'] })
+    ]
+  };
+
+  MAPS.kazemine = {
+    ...cityBase('kazemine', 'カゼミネシティ', '#8878d8'),
+    edgeExits: {
+      left: { tiles: [[0, 9]], to: 'route6', tx: 26, ty: 6 },
+      right: { tiles: [[21, 9]], to: 'route3', tx: 1, ty: 7 }
+    },
+    signs: { '3,7': 'カゼミネシティ\n「たかなる かぜの ふく おか」' },
+    npcs: [
+      { id: 'kz_man', kind: 'npc', skin: 'man', x: 16, y: 11, dir: 'down',
+        text: ['ひがしの ビリビリどうくつを ぬけると ライデンシティだ。', 'どうくつには でんきモンスターが おおいぞ。'] },
+      { id: 'kz_girl', kind: 'npc', skin: 'girl', x: 6, y: 6, dir: 'down',
+        text: ['ひこうタイプは いわと でんきが にがて。おぼえておいてね。'] }
+    ],
+    trainers: []
+  };
+
+  MAPS.route3 = {
+    id: 'route3', name: 'ビリビリどうくつ', rows: ROUTE3_ROWS, outdoor: false, cave: true, music: 'cave',
+    encounters: { rate: 0.16, list: [[16, 20, 23, 40], [18, 20, 23, 35], [20, 21, 24, 25]] },
+    warps: [],
+    edgeExits: {
+      left: { tiles: [[0, 7]], to: 'kazemine', tx: 20, ty: 9 },
       right: { tiles: [[23, 7]], to: 'raiden', tx: 1, ty: 9 }
     },
     signs: {},
     npcs: [],
     trainers: [
       TR('r3_hiker', { name: 'やまおとこの ゴロウ', skin: 'man', x: 6, y: 6, dir: 'right',
-        team: [[18, 15], [16, 14]], money: 400,
+        team: [[18, 22], [16, 21]], money: 700,
         pre: ['ガハハ！ どうくつで きたえた イワコロを みせてやろう！'], lose: ['ガハハ！ まいった まいった！'],
         after: ['いわタイプは でんきに つよいが みずと くさには よわいのだ。'] }),
       TR('r3_sci', { name: 'けんきゅういんの ミドリ', skin: 'girl', x: 16, y: 8, dir: 'left',
-        team: [[16, 16]], money: 450,
+        team: [[16, 23]], money: 750,
         pre: ['この どうくつの せいでんきを けんきゅう しています。\nデータ しゅうしゅうに ごきょうりょく ください！'],
         lose: ['きちょうな データが とれました…'],
         after: ['ビリムシは Lv22で ビリガブトに しんかします。'] })
@@ -545,7 +629,7 @@
     ...cityBase('raiden', 'ライデンシティ', '#c8a020'),
     edgeExits: {
       left: { tiles: [[0, 9]], to: 'route3', tx: 22, ty: 7 },
-      right: { tiles: [[21, 9]], to: 'route4', tx: 1, ty: 6 }
+      right: { tiles: [[21, 9]], to: 'route7', tx: 1, ty: 6 }
     },
     signs: { '3,7': 'ライデンシティ\n「いかずちに まもられし まち」' },
     npcs: [
@@ -557,23 +641,63 @@
     trainers: []
   };
 
-  MAPS.route4 = {
-    id: 'route4', name: 'ルート4', rows: ROUTE4_ROWS, outdoor: true, music: 'route',
-    encounters: { rate: 0.13, list: [[24, 20, 24, 35], [25, 20, 24, 30], [11, 21, 24, 20], [15, 22, 25, 15]] },
+  MAPS.route7 = {
+    id: 'route7', name: 'ルート7', rows: ROUTE2_ROWS, outdoor: true, music: 'route',
+    encounters: { rate: 0.13, list: [[24, 24, 27, 30], [25, 24, 27, 25], [15, 25, 27, 20], [11, 24, 26, 25]] },
     warps: [],
     edgeExits: {
       left: { tiles: [[0, 6]], to: 'raiden', tx: 20, ty: 9 },
+      right: { tiles: [[29, 6]], to: 'yomigaoka', tx: 1, ty: 9 }
+    },
+    signs: { '15,3': 'ルート7\nライデンシティ ⇔ ヨミガオカシティ' },
+    npcs: [],
+    trainers: [
+      TR('r7_man', { name: 'けんきゅういんの ノボル', skin: 'man', x: 11, y: 6, dir: 'left',
+        team: [[17, 25], [16, 24]], money: 600,
+        pre: ['しんかの けんきゅうちゅうです。データを とらせてください！'], lose: ['すばらしい サンプルです…'],
+        after: ['ヨミガオカシティには ゴーストタイプの ジムが あります。'] }),
+      TR('r7_rival', { rival: true, name: 'ライバルの レン', skin: 'rival', x: 20, y: 6, dir: 'left', sight: 4,
+        hideIf: 'rival3', flagOnWin: 'rival3',
+        pre: ['ユウ！ バッジは いくつ あつめた？\nオレの チームは もう しあがってきたぜ！'],
+        lose: ['また まけた…！？ なんでだよ！'],
+        team: 'RIVAL3', money: 1500,
+        afterScript: ['……つよくなったな。でも チャンピオンに なるのは オレだ！\nじゃあな！'] })
+    ]
+  };
+
+  MAPS.yomigaoka = {
+    ...cityBase('yomigaoka', 'ヨミガオカシティ', '#584878'),
+    edgeExits: {
+      left: { tiles: [[0, 9]], to: 'route7', tx: 28, ty: 6 },
+      right: { tiles: [[21, 9]], to: 'route4', tx: 1, ty: 6 }
+    },
+    signs: { '3,7': 'ヨミガオカシティ\n「たそがれどきに ひが ともる まち」' },
+    npcs: [
+      { id: 'ym_girl', kind: 'npc', skin: 'girl', x: 16, y: 11, dir: 'down',
+        text: ['ゴーストタイプに ノーマルわざは あたらないの。しってた？', 'シノブさんの ヨミビトは とっても はやいわよ。'] },
+      { id: 'ym_man', kind: 'npc', skin: 'man', x: 6, y: 6, dir: 'down',
+        text: ['よみちで ユラビに であったら ついてこられるぞ…ひひひ。'] }
+    ],
+    trainers: []
+  };
+
+  MAPS.route4 = {
+    id: 'route4', name: 'ルート4', rows: ROUTE4_ROWS, outdoor: true, music: 'route',
+    encounters: { rate: 0.13, list: [[24, 28, 31, 30], [25, 28, 31, 25], [15, 29, 32, 20], [11, 28, 31, 25]] },
+    warps: [],
+    edgeExits: {
+      left: { tiles: [[0, 6]], to: 'yomigaoka', tx: 20, ty: 9 },
       right: { tiles: [[27, 6]], to: 'iwado', tx: 1, ty: 9 }
     },
-    signs: { '3,4': 'ルート4\nライデンシティ ⇔ イワドシティ' },
+    signs: { '3,4': 'ルート4\nヨミガオカシティ ⇔ イワドシティ' },
     npcs: [],
     trainers: [
       TR('r4_boy', { name: 'エリートこぞうの タクマ', skin: 'boy2', x: 14, y: 6, dir: 'left',
-        team: [[11, 22]], money: 600,
+        team: [[11, 29]], money: 800,
         pre: ['ここまで これたなら なかなかの うでまえ…だが オレには かてない！'], lose: ['ぐぬぬ…'],
         after: ['イワドシティの ガンテツさんは この ちほう さいこうの いわつかいだ。'] }),
       TR('r4_bird', { name: 'とりつかいの ワタル', skin: 'man', x: 22, y: 8, dir: 'left',
-        team: [[13, 23], [25, 22]], money: 650,
+        team: [[13, 30], [25, 29]], money: 850,
         pre: ['そらを まう つばさの うつくしさ みせてやろう！'], lose: ['はばたきが たりなかったか…'],
         after: ['ひこうタイプは でんきと いわが にがてなんだ。'] })
     ]
@@ -583,14 +707,51 @@
     ...cityBase('iwado', 'イワドシティ', '#907850'),
     edgeExits: {
       left: { tiles: [[0, 9]], to: 'route4', tx: 26, ty: 6 },
-      up: { tiles: [[10, 0], [11, 0]], to: 'victory', tx: 9, ty: 16 }
+      right: { tiles: [[21, 9]], to: 'route8', tx: 1, ty: 6 }
     },
     signs: { '3,7': 'イワドシティ\n「いわはだに きざまれし れきし」' },
     npcs: [
-      { id: 'iw_guard', kind: 'npc', skin: 'man', x: 10, y: 1, dir: 'down', blockIf: '!badge4',
-        text: ['この さきは ヴィクトリーロード。\nリーグに いどむには 4つの バッジが ひつようだ！'],
-        unlockText: ['4つの バッジ…みごとだ！\nチャンピオンが きみを まっているぞ！'] },
       { id: 'iw_girl', kind: 'npc', skin: 'girl', x: 16, y: 11, dir: 'down',
+        text: ['ひがしの ルート8の さきは ツキミシティ。さいごの ジムが あるわ。', 'その きたには ヴィクトリーロードと モンスターリーグ…！'] },
+      { id: 'iw_man', kind: 'npc', skin: 'man', x: 6, y: 6, dir: 'down',
+        text: ['ガンテツさんの ガンゴツオは この ちほう いちの かたさだ。'] }
+    ],
+    trainers: []
+  };
+
+  MAPS.route8 = {
+    id: 'route8', name: 'ルート8', rows: ROUTE4_ROWS, outdoor: true, music: 'route',
+    encounters: { rate: 0.13, list: [[11, 31, 34, 30], [13, 31, 34, 25], [21, 32, 35, 20], [17, 31, 34, 25]] },
+    warps: [],
+    edgeExits: {
+      left: { tiles: [[0, 6]], to: 'iwado', tx: 20, ty: 9 },
+      right: { tiles: [[27, 6]], to: 'tsukimi', tx: 1, ty: 9 }
+    },
+    signs: { '3,4': 'ルート8\nイワドシティ ⇔ ツキミシティ' },
+    npcs: [],
+    trainers: [
+      TR('r8_vet', { name: 'ベテラントレーナーの ジンペイ', skin: 'man', x: 14, y: 6, dir: 'left',
+        team: [[19, 33], [23, 33]], money: 1100,
+        pre: ['リーグを めざす わかものよ！ この ジンペイが ためして やろう！'], lose: ['うむ…みごとな うでまえ！'],
+        after: ['ツキミシティの ゲッコウさんは ノーマルタイプの めいじんだ。'] }),
+      TR('r8_girl', { name: 'おとなの おねえさんの ルリ', skin: 'girl', x: 22, y: 8, dir: 'left',
+        team: [[15, 33], [13, 34]], money: 1000,
+        pre: ['つきよの しょうぶって ロマンチックでしょ？'], lose: ['まけちゃった…でも いいしょうぶ だったわ。'],
+        after: ['げんきのかけらは もった？ この さきは ながい みちのりよ。'] })
+    ]
+  };
+
+  MAPS.tsukimi = {
+    ...cityBase('tsukimi', 'ツキミシティ', '#8890b8'),
+    edgeExits: {
+      left: { tiles: [[0, 9]], to: 'route8', tx: 26, ty: 6 },
+      up: { tiles: [[10, 0], [11, 0]], to: 'victory', tx: 9, ty: 16 }
+    },
+    signs: { '3,7': 'ツキミシティ\n「つきかげ やどる さいはての まち」' },
+    npcs: [
+      { id: 'tk_guard', kind: 'npc', skin: 'man', x: 9, y: 1, dir: 'down', blockIf: '!badge8',
+        text: ['この さきは ヴィクトリーロード。\nリーグに いどむには 8つの バッジが ひつようだ！'] },
+      { id: 'tk_girl', kind: 'npc', skin: 'girl', x: 16, y: 11, dir: 'down',
         text: ['ヴィクトリーロードの おくに モンスターリーグが あるのよ。', 'チャンピオンは まだ わかいのに とても つよいんだって。'] }
     ],
     trainers: []
@@ -598,34 +759,34 @@
 
   MAPS.victory = {
     id: 'victory', name: 'ヴィクトリーロード', rows: VICTORY_ROWS, outdoor: false, cave: true, music: 'cave',
-    encounters: { rate: 0.15, list: [[18, 28, 32, 30], [17, 28, 32, 30], [21, 30, 34, 20], [19, 30, 33, 20]] },
+    encounters: { rate: 0.15, list: [[18, 34, 38, 30], [17, 34, 38, 30], [21, 35, 39, 20], [19, 35, 38, 20]] },
     warps: [],
     edgeExits: {
-      down: { tiles: [[9, 17], [10, 17]], to: 'iwado', tx: 10, ty: 1 },
+      down: { tiles: [[9, 17], [10, 17]], to: 'tsukimi', tx: 10, ty: 1 },
       up: { tiles: [[9, 0], [10, 0]], to: 'league', tx: 5, ty: 12 }
     },
     signs: {},
     npcs: [],
     trainers: [
       TR('vc_t1', { name: 'ベテラントレーナーの レイジ', skin: 'man', x: 4, y: 7, dir: 'right',
-        team: [[19, 30], [17, 31]], money: 900,
+        team: [[19, 36], [17, 37]], money: 1400,
         pre: ['リーグに いどむものよ！ この レイジが ためして やろう！'], lose: ['みごとな たたかい だった！'],
         after: ['チャンピオンは でんせつの モンスターを つれて いると いう うわさだ…'] }),
       TR('vc_boss', { name: 'ダークスターだんボス ゲンバ', skin: 'boss', x: 7, y: 10, dir: 'down', sight: 3,
         hideIf: 'boss', flagOnWin: 'boss', boss: true,
         pre: ['…ここまで くるとはな。\nワシは ダークスターだんボス ゲンバ。\nでんせつの ライメイチョウの ちからで せかいを にぎる…！\nジャマを するなら ようしゃは せん！'],
         lose: ['バカな… ワシの やぼうが…！'],
-        team: [[21, 32], [19, 33], [17, 33]], money: 3000,
+        team: [[21, 39], [19, 40], [17, 40]], money: 5000,
         afterScript: ['…ライメイチョウは ダークスターだんの ワシではなく きみのような トレーナーを えらぶのかも しれんな。\nだんは かいさんだ…' ] }),
       TR('vc_t2', { name: 'ベテラントレーナーの アヤメ', skin: 'girl', x: 15, y: 12, dir: 'left',
-        team: [[15, 31], [23, 32]], money: 950,
+        team: [[15, 37], [23, 38]], money: 1450,
         pre: ['さいごの しれんよ！ ぜんりょくで きなさい！'], lose: ['この さきは あなたの ぶたい ね。'],
         after: ['かいふくは じゅうぶんに？ この さきに センターは ないわよ。'] }),
       TR('vc_rival', { rival: true, name: 'ライバルの レン', skin: 'rival', x: 9, y: 1, dir: 'down', sight: 4,
-        hideIf: 'rival3', flagOnWin: 'rival3',
+        hideIf: 'rival4', flagOnWin: 'rival4',
         pre: ['ユウ…！ やっぱり ここまで きたか。\nリーグの まえに オレが かつ！'],
         lose: ['くそっ…！ なんで かてないんだ…'],
-        team: 'RIVAL3', money: 2000,
+        team: 'RIVAL4', money: 3000,
         afterScript: ['…みとめるよ。おまえは つよい。\nでも チャンピオンは オレより ずっと つよいぜ。\nおたがい ここまで きたんだ。さいごまで あきらめるなよ！'] })
     ]
   };
@@ -676,48 +837,92 @@
         team: [[26, 12], [22, 14]], money: 1500,
         pre: ['ようこそ ミナモジムへ。\nわたしは マリナ。みずの しんぴを あなたに みせるわ！'],
         lose: ['まけたわ…あなたの ちからは ほんもの ね。'],
-        award: ['しずくバッジを さずけます。\nルート2の けんもんを とおれるように なるわ。\nつぎは ヒバナシティの ジムを めざしなさい！'] },
+        award: ['しずくバッジを さずけます。\nルート2の けんもんを とおれるように なるわ。\nつぎは ハナゾノシティの ジムを めざしなさい！'] },
       trainer: TR('gt_minamo', { name: 'かいパンやろうの トオル', skin: 'boy2', x: 3, y: 6, dir: 'right',
         team: [[22, 12]], money: 300,
         pre: ['ジムに ちょうせん するのか？ まずは オレと しょうぶだ！'], lose: ['ザブーン…'],
         after: ['マリナさんの アワガニは まもりが かたいぞ。'] })
     },
+    hanazono: {
+      leader: { name: 'ジムリーダーの ボタン', skin: 'leader', badge: 'badge2',
+        team: [[14, 16], [15, 18]], money: 1800,
+        pre: ['ハナゾノジムへ ようこそ。\nわたしは ボタン。はなと みどりの まいを ごらんなさい！'],
+        lose: ['はなは ちっても また さくわ。みごとでした。'],
+        award: ['リーフバッジを さずけます。\nひがしの ルート5を ぬけて ヒバナシティへ どうぞ！'] },
+      trainer: TR('gt_hanazono', { name: 'ミニスカートの スミレ', skin: 'girl', x: 3, y: 6, dir: 'right',
+        team: [[14, 15]], money: 350,
+        pre: ['おはなの ジムだからって あまく みないでね！'], lose: ['しおれちゃう〜！'],
+        after: ['ボタンさんの ハナカグラは ねむりごなを つかうわ。'] })
+    },
     hibana: {
-      leader: { name: 'ジムリーダーの エンジ', skin: 'leader', badge: 'badge2',
-        team: [[20, 17], [27, 19]], money: 2000,
+      leader: { name: 'ジムリーダーの エンジ', skin: 'leader', badge: 'badge3',
+        team: [[20, 20], [27, 22]], money: 2200,
         pre: ['よく きた！ ワシは エンジ。\nほのおの ねっぷうを あじわう がいい！'],
         lose: ['みごとな しょうぶ だった！'],
-        award: ['ひだねバッジを さずけよう。\nひがしの どうくつを ぬけて ライデンシティへ すすむのだ！'] },
+        award: ['ひだねバッジを さずけよう。\nひがしの ルート6を ぬけて カゼミネシティへ すすむのだ！'] },
       trainer: TR('gt_hibana', { name: 'ひふきやろうの カジ', skin: 'boy2', x: 3, y: 6, dir: 'right',
-        team: [[20, 15]], money: 350,
+        team: [[20, 19]], money: 400,
         pre: ['アチチな しょうぶと いこうぜ！'], lose: ['もえつきたぜ…'],
         after: ['エンジさんの ヒノコマは はやくて つよい。まひや ねむりが きくぞ。'] })
     },
+    kazemine: {
+      leader: { name: 'ジムリーダーの カザミ', skin: 'leader', badge: 'badge4',
+        team: [[25, 24], [13, 26]], money: 2500,
+        pre: ['カゼミネジムに ようこそ！ わたしは カザミ。\nおおぞらの じゆうを みせてあげる！'],
+        lose: ['かぜが やんだ…あなたの かちよ。'],
+        award: ['つばさバッジを さずけるわ。\nひがしの ビリビリどうくつを ぬけて ライデンシティへ！'] },
+      trainer: TR('gt_kazemine', { name: 'とりつかいの ソラ', skin: 'boy2', x: 3, y: 6, dir: 'right',
+        team: [[25, 23]], money: 450,
+        pre: ['そらの たかみから しょうぶだ！'], lose: ['ついらく〜！'],
+        after: ['カザミさんの アオバズマは おんそくで つっこんでくるぞ。'] })
+    },
     raiden: {
-      leader: { name: 'ジムリーダーの ライゾウ', skin: 'leader', badge: 'badge3',
-        team: [[24, 23], [17, 25]], money: 2500,
+      leader: { name: 'ジムリーダーの ライゾウ', skin: 'leader', badge: 'badge5',
+        team: [[24, 27], [17, 29]], money: 2800,
         pre: ['オレは ライゾウ！ いなずまの ごとき スピードに ついてこれるか！？'],
         lose: ['シビれる ようなしょうぶ だったぜ！'],
-        award: ['いかずちバッジを やろう！\nつぎは イワドシティ。がんこな ガンテツさんが まってるぜ！'] },
+        award: ['いかずちバッジを やろう！\nつぎは ヨミガオカシティ。ゴーストつかいの シノブが まってるぜ！'] },
       trainer: TR('gt_raiden', { name: 'エンジニアの デンタ', skin: 'man', x: 3, y: 6, dir: 'right',
-        team: [[16, 21], [24, 22]], money: 400,
+        team: [[16, 26], [24, 27]], money: 500,
         pre: ['でんあつ MAXで いくぜ！'], lose: ['ショート しちまった…'],
         after: ['でんきわざは みずと ひこうに ばつぐんだ。'] })
     },
+    yomigaoka: {
+      leader: { name: 'ジムリーダーの シノブ', skin: 'leader', badge: 'badge6',
+        team: [[20, 30], [21, 32]], money: 3100,
+        pre: ['…ようこそ。わたしは シノブ。\nたそがれの むこうがわを のぞかせて あげましょう…'],
+        lose: ['…ひかりが やみを はらったの ね。'],
+        award: ['たそがれバッジを さずけます…\nにしの ルート4の さき イワドシティへ おゆきなさい…'] },
+      trainer: TR('gt_yomigaoka', { name: 'きとうしの レイ', skin: 'girl', x: 3, y: 6, dir: 'right',
+        team: [[20, 29]], money: 550,
+        pre: ['この ジムに はいった もの…ただでは かえさない…'], lose: ['じょうぶつ できそう…'],
+        after: ['ノーマルわざは ゴーストに あたらない。きをつけて…'] })
+    },
     iwado: {
-      leader: { name: 'ジムリーダーの ガンテツ', skin: 'leader', badge: 'badge4',
-        team: [[18, 27], [19, 30]], money: 3000,
+      leader: { name: 'ジムリーダーの ガンテツ', skin: 'leader', badge: 'badge7',
+        team: [[18, 33], [19, 35]], money: 3400,
         pre: ['ワシが ガンテツ。いわは すべてを うけとめる。\nきみの かくごを ぶつけて みよ！'],
         lose: ['…うむ。りっぱな トレーナーに なったな。'],
-        award: ['がんせきバッジだ。もっていけ。\n4つの バッジを あつめた きみは リーグに ちょうせん できる。\nきたの ヴィクトリーロードを ぬけるのだ！'] },
+        award: ['がんせきバッジだ。もっていけ。\nさいごの ジムは ひがしの ツキミシティ。\nゲッコウさんが きみを まっているぞ！'] },
       trainer: TR('gt_iwado', { name: 'からておうの ゴウ', skin: 'man', x: 3, y: 6, dir: 'right',
-        team: [[18, 26]], money: 500,
+        team: [[18, 32]], money: 600,
         pre: ['おす！ きあいだーッ！'], lose: ['おす！ まいりました！'],
         after: ['ガンテツさんの ガンゴツオは ぼうぎょが てつのように かたい。'] })
+    },
+    tsukimi: {
+      leader: { name: 'ジムリーダーの ゲッコウ', skin: 'leader', badge: 'badge8',
+        team: [[11, 36], [13, 38]], money: 4000,
+        pre: ['ツキミジムへ ようこそ。わたくしが ゲッコウ。\nかざりのない ノーマルタイプこそ しんの つよさ。\nまんげつの よるの ように しずかに まいりましょう。'],
+        lose: ['……つきも みちれば かける。おみごとです。'],
+        award: ['みかづきバッジを さずけましょう。\n8つの バッジが そろいましたね。\nきたの ヴィクトリーロードを ぬけ リーグへ…！\nあなたの ものがたりの さいしゅうしょうです。'] },
+      trainer: TR('gt_tsukimi', { name: 'エリートトレーナーの ミヤビ', skin: 'girl', x: 3, y: 6, dir: 'right',
+        team: [[11, 35]], money: 700,
+        pre: ['ゲッコウさまに あう まえに わたしを たおして いきなさい！'], lose: ['おみそれ しました…'],
+        after: ['ゲッコウさまの アオバズマは ひこうわざも つかうわ。'] })
     }
   };
 
-  for (const cid of ['minamo', 'hibana', 'raiden', 'iwado']) {
+  for (const cid of ['minamo', 'hanazono', 'hibana', 'kazemine', 'raiden', 'yomigaoka', 'iwado', 'tsukimi']) {
     inn(`center_${cid}`, CENTER_ROWS, cid, 4, 5, {
       name: 'モンスターセンター', music: 'town',
       npcs: [{ id: `nurse_${cid}`, kind: 'npc', skin: 'nurse', x: 5, y: 2, dir: 'down', role: 'nurse' }]
@@ -740,11 +945,16 @@
   const RIVAL_TEAMS = {
     RIVAL1: (st) => [[rivalStarter(st), 5]],
     RIVAL2: (st) => [[12, 11], [rivalStarter(st), 13]],
-    RIVAL3: (st) => [[13, 28], [24, 29], [speciesById(rivalStarter(st)).evo.to, 30]],
+    RIVAL3: (st) => [[13, 30], [24, 31], [speciesById(rivalStarter(st)).evo.to, 32]],
+    RIVAL4: (st) => {
+      const mid = speciesById(rivalStarter(st)).evo.to;
+      const final = speciesById(mid).evo.to;
+      return [[13, 38], [24, 38], [19, 39], [final, 40]];
+    },
     CHAMPION: (st) => {
       const mid = speciesById(rivalStarter(st)).evo.to;
       const final = speciesById(mid).evo.to;
-      return [[13, 39], [24, 38], [19, 40], [28, 44], [final, 42]];
+      return [[13, 45], [24, 44], [19, 46], [28, 49], [final, 47]];
     }
   };
 

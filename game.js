@@ -477,8 +477,8 @@
   const GATES = [
     { map: 'hometown', dir: 'up', cond: () => !G.flags.starter,
       text: 'カエデはかせが けんきゅうじょで\nまっている みたいだ。' },
-    { map: 'iwado', dir: 'up', cond: () => !G.flags.badge4,
-      text: 'けいびいん「ここから さきは ヴィクトリーロード。\n4つの ジムバッジが ないと とおれません！」' }
+    { map: 'tsukimi', dir: 'up', cond: () => !G.flags.badge8,
+      text: 'けいびいん「ここから さきは ヴィクトリーロード。\n8つの ジムバッジが ないと とおれません！」' }
   ];
 
   async function afterWarpStep() {
@@ -782,7 +782,7 @@
   async function roleChampion(ent) {
     if (!G.flags.champion) {
       await say('レン「……きたか ユウ。」');
-      await say('レン「おどろいたか？ 4にんの ジムリーダーを たおして\nさいそくで ここまで きたのは オレだ。」');
+      await say('レン「おどろいたか？ 8つの ジムバッジを\nさいそくで あつめたのは この オレだ。」');
       await say('レン「いまの オレは チャンピオン。\nそして でんせつの ライメイチョウも オレを みとめた。」');
       await say('レン「さいごの しょうぶだ ユウ！\nこの ぶたいで どっちが さいきょうか きめようぜ！」');
     } else {
@@ -860,6 +860,7 @@
   /* ================= しんか ================= */
   window.Game = {
     state: () => G,
+    debugWarp: (id, x, y, dir) => { if (G && GD.MAPS[id]) loadMap(id, x, y, dir || 'down'); },
     queueEvolution: (mon) => evoQueue.set(mon.uid, mon),
     clearEvolutions: () => evoQueue.clear(),
     runEvolutions: async () => {

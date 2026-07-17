@@ -269,6 +269,43 @@ html, body {
 .blink-hit { animation: hitBlink .36s steps(3); }
 @keyframes hitBlink { 33% { opacity: 0; } 66% { opacity: 1; } 90% { opacity: 0; } }
 
+/* 攻撃時の踏み込み */
+.lunge-p { animation: lungeP .26s ease-out; }
+@keyframes lungeP { 35% { transform: translate(30px, -16px); } }
+.lunge-e { animation: lungeE .26s ease-out; }
+@keyframes lungeE { 35% { transform: translate(-30px, 16px); } }
+
+/* わざタイプ色のヒットバースト */
+.fx-burst {
+  position: absolute;
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 20px 8px currentColor;
+  opacity: .85;
+  pointer-events: none;
+  z-index: 15;
+  animation: burstFx .45s ease-out forwards;
+}
+@keyframes burstFx {
+  from { transform: scale(.4); opacity: .95; }
+  to { transform: scale(3.4); opacity: 0; }
+}
+
+/* こうかばつぐん時の画面シェイク */
+#battle.shake-hard { animation: shakeHard .42s; }
+@keyframes shakeHard {
+  0%, 100% { transform: none; }
+  20% { transform: translate(-7px, 3px); }
+  40% { transform: translate(6px, -4px); }
+  60% { transform: translate(-5px, 2px); }
+  80% { transform: translate(3px, -2px); }
+}
+
+/* 状態異常付与の明滅 */
+.status-pulse { animation: statusPulse .6s ease-in-out; }
+@keyframes statusPulse { 50% { filter: hue-rotate(120deg) brightness(1.5); } }
+
 .faint { animation: faintDown .5s ease-in forwards; }
 @keyframes faintDown { to { transform: translateY(60px); opacity: 0; } }
 
