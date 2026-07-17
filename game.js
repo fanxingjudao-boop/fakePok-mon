@@ -1144,13 +1144,27 @@
     startPlayClock._t = setInterval(() => { if (G) G.playSec++; }, 1000);
   }
 
-  /* ---- レイアウトスケール ---- */
+  /* ---- レイアウトスケール ----
+   * スマホ等の狭い画面では、コンソール全体(画面+コントローラ)を
+   * 縦横どちらにも収まる倍率で縮小し、translateで正確に中央寄せする。
+   * (transform-origin: top center + margin:auto だと縮小時に右へズレる)
+   */
   function fitScale() {
     const con = $('console');
-    const scale = Math.min(1, (window.innerWidth - 8) / 520);
-    con.style.transform = `scale(${scale})`;
+    con.style.margin = '0';
+    con.style.transformOrigin = 'top left';
+    con.style.transform = 'none';
+    const w = con.offsetWidth || 520;
+    const h = con.offsetHeight || 620;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const scale = Math.min(1, vw / w, vh / h);
+    const x = Math.max(0, (vw - w * scale) / 2);
+    con.style.transform = `translate(${x}px, 0px) scale(${scale})`;
   }
   window.addEventListener('resize', fitScale);
+  window.addEventListener('orientationchange', fitScale);
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', fitScale);
 
   /* ---- 起動 ---- */
   window.addEventListener('load', () => {
