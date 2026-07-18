@@ -10,12 +10,14 @@
 const assert = require('node:assert/strict');
 
 global.window = {};
+require('../world-maps.js');
 require('../data.js');
 const GD = global.window.GameData;
 assert.ok(GD && GD.MAPS, 'GameData.MAPS が読めない');
 const MAPS = GD.MAPS;
 
 const problems = [], warnings = [];
+const KNOWN_TILES = new Set([',', '.', '%', 'T', 'W', 'R', 'B', 'D', 'S', 'F', '^', 'c', 'x', '_', '#', 'M', '=', 'g']);
 const walkable = (map, x, y) => {
   const t = map.rows[y] && map.rows[y][x];
   if (t == null) return false;
@@ -23,6 +25,15 @@ const walkable = (map, x, y) => {
   if (map.lockedDoors && map.lockedDoors.some((d) => d.x === x && d.y === y)) return false;
   return true;
 };
+
+/* 0. 行幅の一致・未定義タイルの検出 */
+for (const [id, map] of Object.entries(MAPS)) {
+  const w = map.rows[0] ? map.rows[0].length : 0;
+  map.rows.forEach((row, y) => {
+    if (row.length !== w) problems.push(`${id}: 行幅不一致 y=${y}(${row.length}≠${w})`);
+    for (const ch of row) if (!KNOWN_TILES.has(ch)) problems.push(`${id}: 未定義タイル '${ch}' を含む`);
+  });
+}
 
 /* 1. 出入口の接続先・歩行可能性 */
 for (const [id, map] of Object.entries(MAPS)) {
@@ -37,7 +48,10 @@ for (const [id, map] of Object.entries(MAPS)) {
     for (const [x, y] of (ee.tiles || [])) if (!walkable(map, x, y)) problems.push(`${id}: edge ${dir} タイル(${x},${y})が壁`);
   }
   for (const n of [...(map.npcs || []), ...(map.trainers || [])]) {
-    if (!walkable(map, n.x, n.y)) warnings.push(`${id}: エンティティ ${n.id || '?'} が壁上 (${n.x},${n.y})`);
+    if (!walkable(map, n.x, n.y)) problems.push(`${id}: エンティティ ${n.id || '?'} が壁上 (${n.x},${n.y})`);
+  }
+  for (const o of (map.obstacles || [])) {
+    if (o.leadsTo && !MAPS[o.leadsTo.to]) problems.push(`${id}: obstacle leadsTo→存在しない ${o.leadsTo.to}`);
   }
 }
 
@@ -46,6 +60,7 @@ const adj = {}; Object.keys(MAPS).forEach((k) => (adj[k] = new Set()));
 for (const [id, map] of Object.entries(MAPS)) {
   (map.warps || []).forEach((w) => { if (MAPS[w.to]) adj[id].add(w.to); });
   Object.values(map.edgeExits || {}).forEach((ee) => { if (MAPS[ee.to]) adj[id].add(ee.to); });
+  (map.obstacles || []).forEach((o) => { if (o.leadsTo && MAPS[o.leadsTo.to]) adj[id].add(o.leadsTo.to); });
 }
 const start = MAPS.home ? 'home' : Object.keys(MAPS)[0];
 const seen = new Set([start]); const q = [start];
@@ -59,7 +74,7 @@ for (const [id, map] of Object.entries(MAPS)) {
   if (!rowsMap.has(map.rows)) rowsMap.set(map.rows, []);
   rowsMap.get(map.rows).push(id);
 }
-for (const ids of rowsMap.values()) if (ids.length > 1) warnings.push(`rows共有(要固有化): ${ids.join(', ')}`);
+for (const ids of rowsMap.values()) if (ids.length > 1) problems.push(`rows共有(固有化されていない): ${ids.join(', ')}`);
 
 /* 出力 */
 console.log(`map-validate: ${Object.keys(MAPS).length} maps / start=${start}`);

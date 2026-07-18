@@ -1027,9 +1027,12 @@
     return { ok: true };
   }
 
+  // 新ワールド(world-maps.js)があればそれを採用。無ければ旧マップ(後方互換)。
+  const ACTIVE_MAPS = (typeof window !== 'undefined' && window.WorldMaps) ? window.WorldMaps : MAPS;
+
   window.GameData = {
     TYPES, TYPE_CHART, typeMult, MOVES, SPECIES, speciesById,
-    ITEMS, MART_STOCK, BADGES, MAPS, RIVAL_TEAMS, STARTERS,
+    ITEMS, MART_STOCK, BADGES, MAPS: ACTIVE_MAPS, RIVAL_TEAMS, STARTERS,
     isSolidTile, isEncounterTile, hasAllBadges, badgeCount, meetsRequirements,
     CORE_FLAGS, coreCount, ABILITY_TYPES, abilitiesOfParty, abilityLabel
   };
