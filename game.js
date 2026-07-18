@@ -217,7 +217,7 @@
         cv.width = 32; cv.height = 32;
         const c = cv.getContext('2d');
         c.imageSmoothingEnabled = false;
-        c.drawImage(SP.monCanvas(m.spId, false), 0, 0, 16, 16, 0, 0, 32, 32);
+        c.drawImage(SP.monCanvas(m.spId, false), 0, 0, 32, 32);
         row.appendChild(cv);
         const info = document.createElement('div');
         info.className = 'party-info';
@@ -825,7 +825,7 @@
       cv.width = 64; cv.height = 64;
       const c = cv.getContext('2d');
       c.imageSmoothingEnabled = false;
-      c.drawImage(SP.monCanvas(m.spId, false), 0, 0, 16, 16, 0, 0, 64, 64);
+      c.drawImage(SP.monCanvas(m.spId, false), 0, 0, 64, 64);
       row.appendChild(cv);
       AU.sfx('cry', m.spId * 53);
       await sleep(700);
@@ -887,7 +887,7 @@
     c.imageSmoothingEnabled = false;
     const draw = (spId, white) => {
       c.clearRect(0, 0, 128, 128);
-      c.drawImage(SP.monCanvas(spId, false), 0, 0, 16, 16, 0, 0, 128, 128);
+      c.drawImage(SP.monCanvas(spId, false), 0, 0, 128, 128);
       if (white) { c.globalCompositeOperation = 'source-atop'; c.fillStyle = '#f8f8ff'; c.fillRect(0, 0, 128, 128); c.globalCompositeOperation = 'source-over'; }
     };
     draw(mon.spId, false);
@@ -976,7 +976,7 @@
     </div>`;
     const c = document.getElementById('dex-cv').getContext('2d');
     c.imageSmoothingEnabled = false;
-    c.drawImage(SP.monCanvas(sp.id, false), 0, 0, 16, 16, 0, 0, 96, 96);
+    c.drawImage(SP.monCanvas(sp.id, false), 0, 0, 96, 96);
     AU.sfx('cry', sp.id * 53);
     await new Promise((res) => {
       uiDepth++;
@@ -1080,7 +1080,7 @@
     let showId = 28;
     const drawTitleMon = () => {
       c.clearRect(0, 0, 96, 96);
-      c.drawImage(SP.monCanvas(showId, false), 0, 0, 16, 16, 0, 0, 96, 96);
+      c.drawImage(SP.monCanvas(showId, false), 0, 0, 96, 96);
     };
     drawTitleMon();
     const cycle = setInterval(() => {
