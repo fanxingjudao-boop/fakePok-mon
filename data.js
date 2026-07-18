@@ -967,8 +967,37 @@
   const hasAllBadges = (flags) => BADGES.every((b) => flags && flags[b.id]);
   const badgeCount = (flags) => BADGES.reduce((n, b) => n + (flags && flags[b.id] ? 1 : 0), 0);
 
+  /* ---- 環核(碧環の4つのコア)。地域試練クリアで得るストーリーフラグ ---- */
+  const CORE_FLAGS = ['coreForest', 'coreTide', 'coreFlare', 'coreStorm'];
+  const coreCount = (flags) => CORE_FLAGS.reduce((n, f) => n + (flags && flags[f] ? 1 : 0), 0);
+
+  /* ---- フィールド能力(=地形の鍵)。特定種族を強制せず「タイプ」で判定する。
+   * 複数タイプが同じ能力を満たせる場合もある(複数解決手段)。 ---- */
+  const ABILITY_TYPES = {
+    clearLog:   { types: ['F'],       label: '倒木を 焼きはらう', by: 'ほのお' },
+    lowerWater: { types: ['W'],       label: '水位を さげる',     by: 'みず' },
+    breakRock:  { types: ['R', 'W'],  label: '岩を くだく/冷ます', by: 'いわ・みず' },
+    glide:      { types: ['FL'],      label: '崖を こえる',       by: 'ひこう' },
+    charge:     { types: ['E'],       label: 'そうちに つうでんする', by: 'でんき' }
+  };
+  // 手持ちが持つフィールド能力の集合(種族タイプから導出)
+  function abilitiesOfParty(party) {
+    const set = new Set();
+    for (const m of (party || [])) {
+      const sp = speciesById(m && m.spId);
+      if (!sp) continue;
+      for (const [ab, def] of Object.entries(ABILITY_TYPES))
+        if (def.types.some((t) => sp.types.includes(t))) set.add(ab);
+    }
+    return set;
+  }
+  const abilityLabel = (ab) => (ABILITY_TYPES[ab] ? `${ABILITY_TYPES[ab].label}(${ABILITY_TYPES[ab].by}タイプ)` : ab);
+
   /* 通行条件の共通判定。data側に requirements を持たせ、意味とエラー文をデータで定義する。
-   * requirements: { allFlags:[...], anyFlags:[...], allBadges:true, minPartyLevel:N, text:'…' }
+   * requirements: {
+   *   allFlags:[...], anyFlags:[...], allBadges:true, minCores:N, minPartyLevel:N,
+   *   anyAbilities:[...], allAbilities:[...], text:'…'
+   * }
    * ctx: { flags, party } を渡す。 戻り値 { ok, text }
    */
   function meetsRequirements(req, ctx) {
@@ -977,10 +1006,19 @@
     const party = (ctx && ctx.party) || [];
     if (req.allBadges && !hasAllBadges(flags))
       return { ok: false, text: req.text || `8つの ジムバッジが ひつようだ！(いま ${badgeCount(flags)}こ)` };
+    if (req.minCores && coreCount(flags) < req.minCores)
+      return { ok: false, text: req.text || `${req.minCores}つの かんかくが ひつようだ(いま ${coreCount(flags)}つ)。` };
     if (req.allFlags && !req.allFlags.every((f) => flags[f]))
       return { ok: false, text: req.text || 'まだ ここは とおれないようだ。' };
     if (req.anyFlags && !req.anyFlags.some((f) => flags[f]))
       return { ok: false, text: req.text || 'まだ ここは とおれないようだ。' };
+    if (req.anyAbilities || req.allAbilities) {
+      const have = abilitiesOfParty(party);
+      if (req.anyAbilities && !req.anyAbilities.some((a) => have.has(a)))
+        return { ok: false, text: req.text || `${req.anyAbilities.map(abilityLabel).join(' か ')}の ちからが ひつよう。` };
+      if (req.allAbilities && !req.allAbilities.every((a) => have.has(a)))
+        return { ok: false, text: req.text || `${req.allAbilities.map(abilityLabel).join(' と ')}の ちからが ひつよう。` };
+    }
     if (req.minPartyLevel) {
       const maxLv = party.reduce((mx, m) => Math.max(mx, m.lv || 0), 0);
       if (maxLv < req.minPartyLevel)
@@ -992,6 +1030,7 @@
   window.GameData = {
     TYPES, TYPE_CHART, typeMult, MOVES, SPECIES, speciesById,
     ITEMS, MART_STOCK, BADGES, MAPS, RIVAL_TEAMS, STARTERS,
-    isSolidTile, isEncounterTile, hasAllBadges, badgeCount, meetsRequirements
+    isSolidTile, isEncounterTile, hasAllBadges, badgeCount, meetsRequirements,
+    CORE_FLAGS, coreCount, ABILITY_TYPES, abilitiesOfParty, abilityLabel
   };
 })();

@@ -37,7 +37,10 @@
     starterId: 0,
     mapId: 'home', x: 4, y: 3, dir: 'down',
     healPoint: { mapId: 'home', x: 4, y: 3 },
-    playSec: 0
+    playSec: 0,
+    // 碧環の旅: 行動履歴(結末を決める)と地域試練クリア記録。story.js の設計に対応。
+    scores: { restore: 0, nature: 0, share: 0 },
+    regionCleared: {}
   });
 
   /* ================= 入力 ================= */
