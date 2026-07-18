@@ -122,10 +122,14 @@
       'T,RRR,,,,,,,,,,T',
       'T,B.B,,,,,,,,,,T',
       'T,,,,,,,,,,,,,,T',
-      'TTTTTTTTTTTTTTTT'
+      'TTTTTTTT.TTTTTTT'
     ],
     warps: [{ x: 3, y: 11, to: 'forest_shrine', tx: 4, ty: 5 }],
-    edgeExits: { left: { tiles: [[0, 7]], to: 'kodachi', tx: 1, ty: 7 } },
+    edgeExits: {
+      left: { tiles: [[0, 7]], to: 'kodachi', tx: 1, ty: 7 },
+      // 横断路(南の峠): 碧樹圏 ⇔ 潮環圏(story グラフの forest↔tide)
+      down: { tiles: [[8, 13]], to: 'tide', tx: 8, ty: 1, req: { allFlags: ['starter'] } }
+    },
     signs: { '7,5': '碧樹圏\n倒木の 奥に 花粉の 湿地が あるという。' },
     obstacles: [{ x: 12, y: 6, kind: 'log', req: { anyAbilities: ['clearLog'] }, openFlag: 'forestLogCleared',
       text: 'おおきな 倒木が 道を ふさいでいる。\n(ほのおタイプの なかまが いれば 焼けそうだ)', doneText: '焼けた 倒木を のりこえた。',
@@ -133,7 +137,9 @@
     npcs: [
       { id: 'fo_walker', kind: 'npc', skin: 'girl', x: 6, y: 7, dir: 'down',
         text: ['森殿の 守護獣は、しんらいを 見せた者にだけ 樹路を あける。', '倒木は ほのおの ちからで やけるらしいよ。'] },
-      { id: 'fo_quest', kind: 'npc', skin: 'man', x: 10, y: 5, dir: 'left', role: 'quest', quest: 'sqCollect' }
+      { id: 'fo_quest', kind: 'npc', skin: 'man', x: 10, y: 5, dir: 'left', role: 'quest', quest: 'sqCollect' },
+      { id: 'fo_stray', kind: 'npc', skin: 'boy2', x: 5, y: 5, dir: 'down', role: 'questTarget',
+        qt: { quest: 'sqTrail', idx: 0, text: '迷い獣を そっと なだめ、むれへ かえした。', lockText: 'ちいさな 迷い獣が おびえている。', doneText: '迷い獣は むれで げんきに している。' } }
     ],
     trainers: [
       { id: 'fo_t1', kind: 'trainer', name: 'たんけんかの ノノ', skin: 'boy2', x: 7, y: 8, dir: 'up', sight: 3,
@@ -157,7 +163,15 @@
     ],
     warps: [{ x: 4, y: 6, to: 'forest', tx: 12, ty: 7 }],
     edgeExits: {}, signs: {}, obstacles: [],
-    npcs: [{ id: 'ma_quest', kind: 'npc', skin: 'man', x: 4, y: 1, dir: 'down', role: 'quest', quest: 'sqBeast' }], trainers: []
+    npcs: [
+      { id: 'ma_quest', kind: 'npc', skin: 'man', x: 4, y: 1, dir: 'down', role: 'quest', quest: 'sqBeast' },
+      { id: 'ma_pollen0', kind: 'npc', skin: 'girl', x: 2, y: 1, dir: 'down', role: 'questTarget',
+        qt: { quest: 'sqCollect', idx: 0, text: '花粉標本を ひとつ 採取した。', lockText: 'めずらしい 花粉が ゆれている。' } },
+      { id: 'ma_pollen1', kind: 'npc', skin: 'girl', x: 6, y: 1, dir: 'down', role: 'questTarget',
+        qt: { quest: 'sqCollect', idx: 1, text: '花粉標本を もうひとつ 採取した。', lockText: 'めずらしい 花粉が ゆれている。' } },
+      { id: 'ma_shrine', kind: 'npc', skin: 'prof', x: 4, y: 5, dir: 'up', role: 'questTarget',
+        qt: { quest: 'sqBeast', idx: 0, text: 'しずめの 祠に ふれ、いのりを ささげた。気配が やわらいだ。', lockText: 'しずめの 祠が しずかに たっている。' } }
+    ], trainers: []
   };
 
   /* 碧樹・森殿(試練→coreForest) (9x7) */
@@ -174,7 +188,10 @@
     ],
     warps: [{ x: 4, y: 6, to: 'forest', tx: 3, ty: 12 }],
     edgeExits: {}, signs: {}, obstacles: [],
-    npcs: [{ id: 'fo_guardian', kind: 'npc', skin: 'leader', x: 4, y: 2, dir: 'down', role: 'guardian',
+    npcs: [
+      { id: 'forest_sw0', kind: 'npc', skin: 'man', x: 2, y: 3, dir: 'down', role: 'trialSwitch', ts: { region: 'forest', idx: 0, need: 2, text: 'ひをともす しるべに 火が ともった。' } },
+      { id: 'forest_sw1', kind: 'npc', skin: 'man', x: 6, y: 3, dir: 'down', role: 'trialSwitch', ts: { region: 'forest', idx: 1, need: 2, text: 'ひをともす しるべに 火が ともった。' } },
+      { id: 'fo_guardian', kind: 'npc', skin: 'leader', x: 4, y: 2, dir: 'down', role: 'guardian',
       guardian: { core: 'coreForest', region: 'forest', name: '森の守護獣モリドラード', species: 3, lv: 12,
         pre: ['森の守護獣が たちはだかる！\n巡環士よ、その しんらいを 見せよ。'], win: ['守護獣は みとめた。碧樹の かんかくが よみがえる！'] } }],
     trainers: []
@@ -198,12 +215,13 @@
       'T,,,,,,,,,,,,,,T',
       'T,,,,,,TT,,,,,,T',
       'T,,,,,,,,,,,,,,T',
-      'TTTTTTTTTTTTTTTT'
+      'TTTTTTTT.TTTTTTT'
     ],
     warps: [{ x: 10, y: 2, to: 'tide_pc', tx: 5, ty: 5 }],
     edgeExits: {
       left:  { tiles: [[0, 1]], to: 'kodachi', tx: 14, ty: 7 },
-      right: { tiles: [[15, 7]], to: 'tide_shrine', tx: 4, ty: 5 }
+      right: { tiles: [[15, 7]], to: 'tide_shrine', tx: 4, ty: 5 },
+      down:  { tiles: [[8, 13]], to: 'forest', tx: 8, ty: 12, req: { allFlags: ['starter'] } }
     },
     signs: { '8,6': '潮環圏\n水門を さげれば、沈んだ 観測所へ おりられる。' },
     obstacles: [{ x: 5, y: 7, kind: 'gate', req: { anyAbilities: ['lowerWater'] }, openFlag: 'tideGateLowered',
@@ -212,7 +230,8 @@
     npcs: [
       { id: 'ti_fisher', kind: 'npc', skin: 'man', x: 8, y: 9, dir: 'down',
         text: ['潮の みちひきで とおれる みちが かわる。', 'みずの なかまが いれば 水門を あやつれるぞ。'] },
-      { id: 'ti_quest', kind: 'npc', skin: 'girl', x: 11, y: 5, dir: 'down', role: 'quest', quest: 'sqChoice' }
+      { id: 'ti_quest', kind: 'npc', skin: 'girl', x: 11, y: 5, dir: 'down', role: 'quest', quest: 'sqChoice' },
+      { id: 'ti_ash', kind: 'npc', skin: 'grunt', x: 9, y: 10, dir: 'down', role: 'ashStar', ashStar: { stage: 'confront' } }
     ],
     trainers: [
       { id: 'ti_t1', kind: 'trainer', name: 'みなとの コウ', skin: 'boy2', x: 6, y: 6, dir: 'right', sight: 3,
@@ -254,7 +273,11 @@
     ],
     warps: [{ x: 4, y: 7, to: 'tide', tx: 6, ty: 7 }],
     edgeExits: {}, signs: { '4,5': '観測 記録\n碧環の いへんは 四方 同時に はじまった。' }, obstacles: [],
-    npcs: [{ id: 'tc_quest', kind: 'npc', skin: 'man', x: 6, y: 1, dir: 'down', role: 'quest', quest: 'sqObserve' }], trainers: []
+    npcs: [
+      { id: 'tc_quest', kind: 'npc', skin: 'man', x: 6, y: 1, dir: 'down', role: 'quest', quest: 'sqObserve' },
+      { id: 'tc_term', kind: 'npc', skin: 'prof', x: 2, y: 5, dir: 'down', role: 'questTarget',
+        qt: { quest: 'sqObserve', idx: 0, text: '記録端末に ふれると、うしなわれた 観測記録が よみがえった。', lockText: 'ふるい 記録端末が ある。' } }
+    ], trainers: []
   };
 
   /* 潮環・水殿(試練→coreTide) (9x7) */
@@ -271,7 +294,10 @@
     ],
     warps: [{ x: 4, y: 6, to: 'tide', tx: 15, ty: 7 }],
     edgeExits: {}, signs: {}, obstacles: [],
-    npcs: [{ id: 'ti_guardian', kind: 'npc', skin: 'leader', x: 4, y: 2, dir: 'down', role: 'guardian',
+    npcs: [
+      { id: 'tide_sw0', kind: 'npc', skin: 'man', x: 2, y: 3, dir: 'down', role: 'trialSwitch', ts: { region: 'tide', idx: 0, need: 2, text: '水位の しるべを あわせた。' } },
+      { id: 'tide_sw1', kind: 'npc', skin: 'man', x: 6, y: 3, dir: 'down', role: 'trialSwitch', ts: { region: 'tide', idx: 1, need: 2, text: '水位の しるべを あわせた。' } },
+      { id: 'ti_guardian', kind: 'npc', skin: 'leader', x: 4, y: 2, dir: 'down', role: 'guardian',
       guardian: { core: 'coreTide', region: 'tide', name: '潮の守護獣カイリュウガ', species: 9, lv: 13,
         pre: ['水面が もりあがり、守護獣が あらわれた！'], win: ['潮の かんかくが つながった！'] } }],
     trainers: []
@@ -320,12 +346,14 @@
       'T,RRR,,,,,,,,,,T',
       'T,B.B,,,,%%,,,,T',
       'T,,,,,,,,%%,,,,T',
-      'TTTTTTTTTTTTTTTT'
+      'TTTTTTTT.TTTTTTT'
     ],
     warps: [{ x: 3, y: 8, to: 'flare_pc', tx: 5, ty: 5 }],
     edgeExits: {
       left:  { tiles: [[0, 1]], to: 'ruins', tx: 1, ty: 3 },
-      right: { tiles: [[15, 4]], to: 'flare_shrine', tx: 4, ty: 5 }
+      right: { tiles: [[15, 4]], to: 'flare_shrine', tx: 4, ty: 5 },
+      // 横断路(火道): 火脈圏 ⇔ 雷霧圏(story グラフの flare↔storm)
+      down:  { tiles: [[8, 10]], to: 'storm', tx: 8, ty: 1, req: { minCores: 2 } }
     },
     signs: { '6,4': '火脈圏\n岩が 冷却洞を ふさいでいる。' },
     obstacles: [{ x: 6, y: 3, kind: 'rock', req: { anyAbilities: ['breakRock'] }, openFlag: 'flareRockBroken',
@@ -334,7 +362,11 @@
     npcs: [
       { id: 'fl_smith', kind: 'npc', skin: 'man', x: 9, y: 5, dir: 'down',
         text: ['火脈の 熱を おさえながら 冷却路を たもつ。それが 試練だ。', '岩は いわで くだくも、みずで 冷ますも よし。'] },
-      { id: 'fl_quest', kind: 'npc', skin: 'girl', x: 11, y: 8, dir: 'down', role: 'quest', quest: 'sqRescue' }
+      { id: 'fl_quest', kind: 'npc', skin: 'girl', x: 11, y: 8, dir: 'down', role: 'quest', quest: 'sqRescue' },
+      { id: 'fl_relay0', kind: 'npc', skin: 'man', x: 4, y: 5, dir: 'down', role: 'questTarget',
+        qt: { quest: 'sqMarket', idx: 0, text: 'ひとつめの 中継地を みまわり、安全を 確認した。', lockText: '段丘の 中継地だ。' } },
+      { id: 'fl_relay1', kind: 'npc', skin: 'man', x: 11, y: 5, dir: 'down', role: 'questTarget',
+        qt: { quest: 'sqMarket', idx: 1, text: 'ふたつめの 中継地も みまわった。行商の 道は 安全だ。', lockText: '段丘の 中継地だ。' } }
     ],
     trainers: [
       { id: 'fl_t1', kind: 'trainer', name: 'かじやの ゴウ', skin: 'man', x: 7, y: 6, dir: 'up', sight: 3,
@@ -375,7 +407,12 @@
     ],
     warps: [{ x: 4, y: 6, to: 'flare', tx: 6, ty: 4 }],
     edgeExits: {}, signs: { '4,4': '冷えた 石碑\n熱を おさめし者に、火の めぐみを。' }, obstacles: [],
-    npcs: [{ id: 'fc_quest', kind: 'npc', skin: 'man', x: 4, y: 1, dir: 'down', role: 'quest', quest: 'sqMarket' }], trainers: []
+    npcs: [
+      { id: 'fc_quest', kind: 'npc', skin: 'man', x: 4, y: 1, dir: 'down', role: 'quest', quest: 'sqMarket' },
+      { id: 'fc_child', kind: 'npc', skin: 'boy2', x: 6, y: 4, dir: 'down', role: 'questTarget',
+        qt: { quest: 'sqRescue', idx: 0, text: '坑道の おくの こどもを みつけ、そとへ つれだした！', lockText: 'こどもが うずくまっている。' } },
+      { id: 'fc_ash', kind: 'npc', skin: 'grunt', x: 2, y: 3, dir: 'down', role: 'ashStar', ashStar: { stage: 'rescue' } }
+    ], trainers: []
   };
 
   /* 火脈・炉殿(試練→coreFlare) (9x7) */
@@ -392,7 +429,10 @@
     ],
     warps: [{ x: 4, y: 6, to: 'flare', tx: 15, ty: 4 }],
     edgeExits: {}, signs: {}, obstacles: [],
-    npcs: [{ id: 'fl_guardian', kind: 'npc', skin: 'leader', x: 4, y: 2, dir: 'down', role: 'guardian',
+    npcs: [
+      { id: 'flare_sw0', kind: 'npc', skin: 'man', x: 2, y: 3, dir: 'down', role: 'trialSwitch', ts: { region: 'flare', idx: 0, need: 2, text: '熱の しるべを しずめた。' } },
+      { id: 'flare_sw1', kind: 'npc', skin: 'man', x: 6, y: 3, dir: 'down', role: 'trialSwitch', ts: { region: 'flare', idx: 1, need: 2, text: '熱の しるべを しずめた。' } },
+      { id: 'fl_guardian', kind: 'npc', skin: 'leader', x: 4, y: 2, dir: 'down', role: 'guardian',
       guardian: { core: 'coreFlare', region: 'flare', name: '炎の守護獣ゴウカオン', species: 6, lv: 20,
         pre: ['炉の おくから 守護獣が ほえた！'], win: ['火脈の かんかくが よみがえった！'] } }],
     trainers: []
@@ -413,21 +453,26 @@
       'T,RRR,,,,,,,,,,T',
       'T,B.B,,,,,,,,,,T',
       'T,,,,,,,,,,,,,,T',
-      'TTTTTTTTTTTTTTTT'
+      'TTTTTTTT.TTTTTTT'
     ],
     warps: [{ x: 3, y: 8, to: 'storm_pc', tx: 5, ty: 5 }],
     edgeExits: {
       left:  { tiles: [[0, 1]], to: 'ruins', tx: 14, ty: 3 },
-      right: { tiles: [[15, 3]], to: 'storm_shrine', tx: 4, ty: 5 }
+      right: { tiles: [[15, 3]], to: 'storm_shrine', tx: 4, ty: 5 },
+      down:  { tiles: [[8, 10]], to: 'flare', tx: 8, ty: 9, req: { minCores: 2 } }
     },
     signs: { '5,5': '雷霧圏\n崖の むこうに 雲上観測塔。飛行か でんきで こえられる。' },
-    obstacles: [{ x: 7, y: 4, kind: 'cliff', req: { anyAbilities: ['glide', 'charge'] }, openFlag: 'stormCliffCrossed',
+    obstacles: [{ x: 8, y: 4, kind: 'cliff', req: { anyAbilities: ['glide', 'charge'] }, openFlag: 'stormCliffCrossed',
       text: '切り立った 崖が 道を へだてる。\n(ひこう か でんきタイプの なかまが いれば こえられそうだ)', doneText: '崖を こえた！',
       leadsTo: { to: 'storm_tower', tx: 4, ty: 5 } }],
     npcs: [
       { id: 'st_watch', kind: 'npc', skin: 'man', x: 10, y: 6, dir: 'down',
         text: ['送電経路を くみかえて 観測塔を おこす。それが 試練だ。', 'ひこうで 崖を こえるか、でんきで 装置を うごかすか。'] },
-      { id: 'st_quest', kind: 'npc', skin: 'girl', x: 11, y: 8, dir: 'down', role: 'quest', quest: 'sqRelay' }
+      { id: 'st_quest', kind: 'npc', skin: 'girl', x: 11, y: 8, dir: 'down', role: 'quest', quest: 'sqRelay' },
+      { id: 'st_relay0', kind: 'npc', skin: 'man', x: 4, y: 5, dir: 'down', role: 'questTarget',
+        qt: { quest: 'sqRelay', idx: 0, text: 'ひとつめの 送電中継を 修理した。あかりが ともる。', lockText: 'こしょうした 送電中継だ。' } },
+      { id: 'st_relay1', kind: 'npc', skin: 'man', x: 11, y: 5, dir: 'down', role: 'questTarget',
+        qt: { quest: 'sqRelay', idx: 1, text: 'ふたつめの 送電中継も 修理した。雷霧に あかりが もどる。', lockText: 'こしょうした 送電中継だ。' } }
     ],
     trainers: [
       { id: 'st_t1', kind: 'trainer', name: 'とりつかいの ソラ', skin: 'boy2', x: 7, y: 6, dir: 'up', sight: 3,
@@ -466,9 +511,13 @@
       '^ccccccc^',
       '^^^^M^^^^'
     ],
-    warps: [{ x: 4, y: 6, to: 'storm', tx: 7, ty: 5 }],
+    warps: [{ x: 4, y: 6, to: 'storm', tx: 8, ty: 5 }],
     edgeExits: {}, signs: { '4,4': '塔の 記録\n雷霧は 碧環の みだれの あかし。' }, obstacles: [],
-    npcs: [{ id: 'sw_quest', kind: 'npc', skin: 'girl', x: 4, y: 1, dir: 'down', role: 'quest', quest: 'sqObserve2' }], trainers: []
+    npcs: [
+      { id: 'sw_quest', kind: 'npc', skin: 'girl', x: 4, y: 1, dir: 'down', role: 'quest', quest: 'sqObserve2' },
+      { id: 'sw_rec', kind: 'npc', skin: 'prof', x: 2, y: 4, dir: 'down', role: 'questTarget',
+        qt: { quest: 'sqObserve2', idx: 0, text: 'きえかけた 記録に ふれ、雷霧の 観測を つなぎとめた。', lockText: 'きえかけた 観測記録が ある。' } }
+    ], trainers: []
   };
 
   /* 雷霧・雷殿(試練→coreStorm) (9x7) */
@@ -485,7 +534,10 @@
     ],
     warps: [{ x: 4, y: 6, to: 'storm', tx: 15, ty: 3 }],
     edgeExits: {}, signs: {}, obstacles: [],
-    npcs: [{ id: 'st_guardian', kind: 'npc', skin: 'leader', x: 4, y: 2, dir: 'down', role: 'guardian',
+    npcs: [
+      { id: 'storm_sw0', kind: 'npc', skin: 'man', x: 2, y: 3, dir: 'down', role: 'trialSwitch', ts: { region: 'storm', idx: 0, need: 2, text: '送電の しるべを つないだ。' } },
+      { id: 'storm_sw1', kind: 'npc', skin: 'man', x: 6, y: 3, dir: 'down', role: 'trialSwitch', ts: { region: 'storm', idx: 1, need: 2, text: '送電の しるべを つないだ。' } },
+      { id: 'st_guardian', kind: 'npc', skin: 'leader', x: 4, y: 2, dir: 'down', role: 'guardian',
       guardian: { core: 'coreStorm', region: 'storm', name: '雷の守護獣ライメイチョウ', species: 28, lv: 22,
         pre: ['いかずちと ともに 守護獣が 舞いおりた！'], win: ['雷霧の かんかくが つながった！ これで 4つ すべて…！'] } }],
     trainers: []

@@ -525,13 +525,29 @@
     await checkTrainerSight();
   }
 
+  // 進行度(取得済み環核数)に応じた敵レベル補正。攻略順が変わっても難度を保つ。
+  const REGION_OF = {
+    forest: 'forest', forest_marsh: 'forest', forest_shrine: 'forest',
+    tide: 'tide', tide_pc: 'tide', tide_obs: 'tide', tide_shrine: 'tide',
+    flare: 'flare', flare_pc: 'flare', flare_cool: 'flare', flare_shrine: 'flare',
+    storm: 'storm', storm_pc: 'storm', storm_tower: 'storm', storm_shrine: 'storm',
+    ruins: 'ruins', nexus: 'nexus'
+  };
+  function levelBump() {
+    const region = REGION_OF[curMap && curMap.id] || 'kodachi';
+    const R = window.StoryData.REGIONS[region];
+    const base = (R && R.unlock && R.unlock.minCores) || 0;
+    return Math.max(0, GD.coreCount(G.flags) - base) * 2;
+  }
+  const scaleTeam = (team) => team.map(([sp, lv]) => [sp, lv + levelBump()]);
+
   async function runWildEncounter() {
     const list = curMap.encounters.list;
     const total = list.reduce((a, e) => a + e[3], 0);
     let r = Math.random() * total, pick = list[0];
     for (const e of list) { r -= e[3]; if (r <= 0) { pick = e; break; } }
     const [spId, lo, hi] = pick;
-    const lv = lo + Math.floor(Math.random() * (hi - lo + 1));
+    const lv = lo + Math.floor(Math.random() * (hi - lo + 1)) + levelBump();
     const result = await BT().startWild(spId, lv, curMap.cave ? 'cave' : 'grass');
     if (result === 'lose') await blackout();
     else AU.play(curMap.music || 'town');
@@ -594,7 +610,9 @@
     }
     faceEachOther(tr);
     for (const t of tr.pre) await say(t);
-    const result = await BT().startTrainer(tr, curMap.cave ? 'cave' : 'grass');
+    // 進行度に応じてトレーナーの手持ちLvを補正
+    const def = Array.isArray(tr.team) ? { ...tr, team: scaleTeam(tr.team) } : tr;
+    const result = await BT().startTrainer(def, curMap.cave ? 'cave' : 'grass');
     if (result === 'win') {
       G.flags[`t_${tr.id}`] = true;
       if (tr.flagOnWin) G.flags[tr.flagOnWin] = true;
@@ -654,6 +672,9 @@
       case 'ren': return roleRen(ent);
       case 'nexusCore': return roleNexusCore(ent);
       case 'quest': return roleQuest(ent);
+      case 'questTarget': return roleQuestTarget(ent);
+      case 'trialSwitch': return roleTrialSwitch(ent);
+      case 'ashStar': return roleAshStar(ent);
       default:
         for (const t of (ent.text || ['……'])) await say(t);
     }
@@ -708,13 +729,32 @@
     await say('カエデはかせ「碧樹圏(西)と 潮環圏(東)、どちらから でも よい。\n2つの 環核を つなげば 中央遺構が ひらく。」');
   }
 
-  /* ---- 守護獣の環核試練 ---- */
+  /* ---- 地域固有の仕掛け(守護獣戦の前提)。しるべを ととのえると 試練解禁 ---- */
+  const TRIAL_HINT = {
+    forest: '守護獣「まず 光の しるべ 2つに ひを ともし、樹路を ひらけ。」',
+    tide:   '守護獣「まず 水位の しるべ 2つを あわせ、経路を つくれ。」',
+    flare:  '守護獣「まず 熱の しるべ 2つを しずめ、冷却路を たもて。」',
+    storm:  '守護獣「まず 送電の しるべ 2つを つなぎ、塔を おこせ。」'
+  };
+  async function roleTrialSwitch(ent) {
+    const { region, idx, need, text } = ent.ts;
+    const key = `ts_${region}_${idx}`;
+    if (G.flags[key]) { await say('(この しるべは もう 起動している)'); return; }
+    G.flags[key] = true;
+    AU.sfx('confirm');
+    await say(text);
+    let n = 0; for (let i = 0; i < need; i++) if (G.flags[`ts_${region}_${i}`]) n++;
+    if (n >= need) { G.flags[`trial_${region}_ready`] = true; await say('仕掛けが ととのった！\n守護獣の しれんに いどめる。'); }
+    else await say(`(しるべ ${n}/${need})`);
+  }
+
+  /* ---- 守護獣の環核試練(仕掛けを ととのえてから戦闘) ---- */
   async function roleGuardian(ent) {
     const g = ent.guardian;
     if (G.flags[g.core]) { await say(`${g.name}\n「この地の かんかくは すでに つながっている。」`); return; }
+    if (!G.flags[`trial_${g.region}_ready`]) { await say(TRIAL_HINT[g.region] || 'まず この地の 仕掛けを ととのえよ。'); return; }
     for (const t of g.pre) await say(t);
-    if (g.rule) await say(`しれん: ${g.rule}`);
-    const def = { id: `guardian_${g.core}`, name: g.name, team: [[g.species, g.lv]], money: 0, boss: true, lose: ['……いまは ここまでか。'] };
+    const def = { id: `guardian_${g.core}`, name: g.name, team: [[g.species, g.lv + levelBump()]], money: 0, boss: true, lose: ['……いまは ここまでか。'] };
     const result = await BT().startTrainer(def, curMap.cave ? 'cave' : 'grass');
     if (result === 'lose') { await blackout(); return; }
     G.flags[g.core] = true;
@@ -782,51 +822,127 @@
     await endingScene(window.StoryData.ENDINGS[id]);
   }
 
-  /* ---- サブクエスト(最低8件・追跡/収集/選択/救助/環境変化を混合) ---- */
+  /* ---- サブクエスト(受注→現地の目標→報告 の多段)。追跡/収集/救助/護衛/選択/観測 ----
+   * type: 'reach'(目標地点で1つ)/'collect'/'visit'(need個の目標)/'choice'(その場で決断)
+   * 目標地点は role:'questTarget'(qt:{quest,idx,text}) のエンティティとして各マップに配置。
+   */
   const QUESTS = {
-    sqTrail:   { title: '迷い獣の 追跡', npc: 'コダチの こども', type: 'do', score: 'share', reward: 'potion', rewardN: 2,
-      pre: ['にげた 迷い獣を おいかけて ほしいんだ！'], doText: 'あしあとを たどり、迷い獣を むれに かえした。' },
-    sqCollect: { title: '花粉標本 あつめ', npc: 'けんきゅういん', type: 'do', score: 'nature', reward: 'superpotion', rewardN: 1,
-      pre: ['花粉の 標本を あつめて ほしい。研究に つかうんだ。'], doText: '各所の 花粉を あつめて とどけた。' },
-    sqBeast:   { title: '守護獣の いかり', npc: 'みこ', type: 'do', score: 'nature', reward: 'superpotion', rewardN: 1,
-      pre: ['湿地の 守護獣が 荒れている。しずめて くれないか。'], doText: '守護獣の 怒りを しずめ、湿地が おだやかに なった。' },
-    sqChoice:  { title: '水門の 選択', npc: 'みなとの むすめ', type: 'choice', q: '水門を どうする？',
-      pre: ['上流の 村と 下流の 港、どちらかしか 水を まわせない。', 'あなたなら どうする？'],
+    sqTrail:   { title: '迷い獣の 追跡', npc: 'コダチの こども', type: 'reach', need: 1, score: 'share', reward: 'potion', rewardN: 2,
+      give: ['にげた 迷い獣が いるんだ。碧樹圏の どこかに いるはず。', 'そっと おいかけて、むれに かえして あげて！'],
+      objective: '碧樹圏で 迷い獣を みつける', remind: 'まだ 迷い獣を みつけて ないみたい…', complete: '迷い獣を むれに かえした！ こどもは よろこんだ。' },
+    sqCollect: { title: '花粉標本 あつめ', npc: 'けんきゅういん', type: 'collect', need: 2, score: 'nature', reward: 'superpotion', rewardN: 1,
+      give: ['花粉の 標本を 2つ あつめて ほしい。', '花粉の 湿地(倒木の 奥)に あるはずだ。'],
+      objective: '花粉の湿地で 花粉標本を 2つ あつめる', remind: 'まだ 花粉が たりない…', complete: '2つの 花粉標本を とどけた！ 研究が すすむ。' },
+    sqBeast:   { title: '守護獣の いかり', npc: 'みこ', type: 'reach', need: 1, score: 'nature', reward: 'superpotion', rewardN: 1,
+      give: ['湿地の おくの 気配が 荒れている。', 'しずめの 祠に ふれて、いのりを ささげて ほしい。'],
+      objective: '湿地の 祠に ふれて 気配を しずめる', remind: 'まだ 気配が おさまって いないわ…', complete: '祠に いのりを ささげ、湿地が おだやかに なった。' },
+    sqChoice:  { title: '水門の 選択', npc: 'みなとの むすめ', type: 'choice', need: 1, q: '水門を どうする？',
+      give: ['上流の 村と 下流の 港、どちらかしか 水を まわせないの。', 'あなたなら どうする？'],
       options: [{ label: '両方に 分ける', kind: 'share', w: 2, res: '手間だが 両方を すくう みちを えらんだ。' },
                 { label: '自然の 流れに まかせる', kind: 'nature', w: 2, res: '川の ながれの ままに ゆだねた。' },
                 { label: '港を 優先し 制御する', kind: 'restore', w: 2, res: '人の くらしを ゆうせんして 水を 制御した。' }] },
-    sqObserve: { title: '観測記録の 復元', npc: 'ろうじん', type: 'do', score: 'restore', reward: 'revive', rewardN: 1,
-      pre: ['沈んだ 観測所の 記録を よみといて ほしい。'], doText: '記録を 復元し、碧環の いへんの きろくを ときあかした。' },
-    sqRescue:  { title: '坑道の 救助', npc: 'かじやの つま', type: 'do', score: 'share', reward: 'hyperpotion', rewardN: 1,
-      pre: ['廃炉坑道に こどもが とりのこされて いるの！たすけて！'], doText: '坑道の おくから こどもを ぶじ 救助した。' },
-    sqMarket:  { title: '行商の 護衛', npc: 'ぎょうしょうにん', type: 'do', score: 'restore', reward: 'superball', rewardN: 3,
-      pre: ['灰の 段丘を こえる 行商を まもって ほしい。'], doText: '行商を まもり、火脈の むこうまで とどけた。' },
-    sqRelay:   { title: '送電中継の 修理', npc: 'ぎしのむすめ', type: 'do', score: 'restore', reward: 'fullheal', rewardN: 2,
-      pre: ['送電中継の 部品を なおして まわって ほしい。'], doText: '中継を 修理し、雷霧に あかりが もどった。' },
-    sqObserve2:{ title: '観測塔の 記録', npc: 'とうの けんきゅういん', type: 'do', score: 'nature', reward: 'hyperpotion', rewardN: 1,
-      pre: ['きえかけた 観測塔の 記録を たすけて。'], doText: '記録を つなぎとめ、雷霧の 変化を 見とおせるように なった。' }
+    sqObserve: { title: '観測記録の 復元', npc: 'ろうじん', type: 'reach', need: 1, score: 'restore', reward: 'revive', rewardN: 1,
+      give: ['沈んだ 観測所の 記録端末を さがして ほしい。', '端末に ふれれば 記録が よみがえる。'],
+      objective: '沈んだ観測所の 記録端末に ふれる', remind: 'まだ 端末を みつけて ないな…', complete: '記録を 復元し、碧環の いへんの きろくを ときあかした。' },
+    sqRescue:  { title: '坑道の 救助', npc: 'かじやの つま', type: 'reach', need: 1, score: 'share', reward: 'hyperpotion', rewardN: 1,
+      give: ['冷却洞の おくに こどもが とりのこされて いるの！', 'たすけに いって あげて！'],
+      objective: '冷却洞の おくの こどもを 救助する', remind: 'まだ こどもを たすけて いないの…', complete: '坑道の おくから こどもを ぶじ 救助した！' },
+    sqMarket:  { title: '行商の 護衛', npc: 'ぎょうしょうにん', type: 'visit', need: 2, score: 'restore', reward: 'superball', rewardN: 3,
+      give: ['火脈圏を こえる みちの 2つの 中継地を みまわって ほしい。', '道が 安全か たしかめて くれ。'],
+      objective: '火脈圏の 中継地を 2か所 みまわる', remind: 'まだ みまわりが おわって いないぞ…', complete: '2つの 中継地を まもり、行商は 安心して たびだった。' },
+    sqRelay:   { title: '送電中継の 修理', npc: 'ぎしのむすめ', type: 'visit', need: 2, score: 'restore', reward: 'fullheal', rewardN: 2,
+      give: ['雷霧圏の 送電中継 2つを なおして まわって ほしいの。', '中継に ふれれば 修理できるわ。'],
+      objective: '雷霧圏の 送電中継を 2つ なおす', remind: 'まだ 中継の 修理が のこってるわ…', complete: '中継を 修理し、雷霧に あかりが もどった！' },
+    sqObserve2:{ title: '観測塔の 記録', npc: 'とうの けんきゅういん', type: 'reach', need: 1, score: 'nature', reward: 'hyperpotion', rewardN: 1,
+      give: ['観測塔の きえかけた 記録に ふれて つなぎとめて。'],
+      objective: '観測塔の 記録に ふれる', remind: 'まだ 記録に ふれて いないわ…', complete: '記録を つなぎとめ、雷霧の 変化を 見とおせるように なった。' }
   };
-  async function roleQuest(ent) {
-    const q = ent.quest, meta = QUESTS[q];
-    if (!meta) { await say('……'); return; }
-    if (G.flags[q]) { await say(`${meta.npc}\n「たすかったよ。ありがとう！」`); return; }
-    for (const t of meta.pre) await say(`${meta.npc}\n「${t}」`);
-    if (meta.type === 'choice') {
-      const c = await menu(meta.options.map((o) => o.label), { title: meta.q, cancelable: false });
-      const opt = meta.options[c];
-      window.StoryData.recordChoice(G, opt.kind, opt.w || 1);
-      await say(opt.res);
-    } else {
-      await say(meta.doText);
-      if (meta.score) window.StoryData.recordChoice(G, meta.score, 1);
-    }
-    G.flags[q] = true;
+  const qFlags = { accepted: (q) => `qa_${q}`, target: (q, i) => `qo_${q}_${i}`, done: (q) => q };
+  function questProgress(q, meta) {
+    if (meta.type === 'choice') return G.flags[qFlags.done(q)] ? meta.need : 0;
+    let n = 0; for (let i = 0; i < meta.need; i++) if (G.flags[qFlags.target(q, i)]) n++;
+    return n;
+  }
+  async function finishQuest(q, meta) {
+    G.flags[qFlags.done(q)] = true;
     if (meta.reward) {
       G.bag[meta.reward] = (G.bag[meta.reward] || 0) + (meta.rewardN || 1);
       AU.sfx('money');
       await say(`おれいに ${GD.ITEMS[meta.reward].name} を ${meta.rewardN || 1}こ もらった！`);
     }
-    await say(`(サブクエスト「${meta.title}」を たっせいした)`);
+    await say(`(サブクエスト「${meta.title}」を たっせいした！)`);
+  }
+  async function roleQuest(ent) {
+    const q = ent.quest, meta = QUESTS[q];
+    if (!meta) { await say('……'); return; }
+    if (G.flags[qFlags.done(q)]) { await say(`${meta.npc}\n「たすかったよ。ありがとう！」`); return; }
+    // 選択クエストは受注時にその場で決断=完了
+    if (meta.type === 'choice') {
+      for (const t of meta.give) await say(`${meta.npc}\n「${t}」`);
+      const c = await menu(meta.options.map((o) => o.label), { title: meta.q, cancelable: false });
+      const opt = meta.options[c];
+      window.StoryData.recordChoice(G, opt.kind, opt.w || 1);
+      await say(opt.res);
+      await finishQuest(q, meta);
+      return;
+    }
+    // 未受注 → 受注
+    if (!G.flags[qFlags.accepted(q)]) {
+      for (const t of meta.give) await say(`${meta.npc}\n「${t}」`);
+      G.flags[qFlags.accepted(q)] = true;
+      AU.sfx('confirm');
+      await say(`(サブクエスト「${meta.title}」を うけた。\nもくひょう: ${meta.objective})`);
+      return;
+    }
+    // 受注済み → 目標達成度を確認
+    const prog = questProgress(q, meta);
+    if (prog < meta.need) { await say(`${meta.npc}\n「${meta.remind}」(${prog}/${meta.need})`); return; }
+    // 目標達成 → 報告して完了
+    await say(meta.complete);
+    if (meta.score) window.StoryData.recordChoice(G, meta.score, 1);
+    await finishQuest(q, meta);
+  }
+
+  /* ---- クエスト目標地点(現地で達成) ---- */
+  async function roleQuestTarget(ent) {
+    const { quest, idx, text } = ent.qt;
+    const meta = QUESTS[quest];
+    if (G.flags[qFlags.done(quest)]) { await say(ent.qt.doneText || '……(もう おわった)'); return; }
+    if (!G.flags[qFlags.accepted(quest)]) { await say(ent.qt.lockText || '……(いまは とくに 用は なさそうだ)'); return; }
+    const key = qFlags.target(quest, idx);
+    if (G.flags[key]) { await say(ent.qt.doneText || '……(すでに すませた)'); return; }
+    G.flags[key] = true;
+    AU.sfx('confirm');
+    await say(text);
+    const prog = questProgress(quest, meta);
+    if (prog >= (meta ? meta.need : 1)) await say(`もくひょう 達成！ ${QUESTS[quest].npc} に ほうこく しよう。`);
+    else await say(`(${prog}/${meta.need})`);
+  }
+
+  /* ---- 灰星局(復旧技術者集団): 目的は正当だが手段が生態系を破壊する ---- */
+  async function roleAshStar(ent) {
+    const a = ent.ashStar;
+    if (a.stage === 'confront') {
+      if (G.flags.ashStarForest) { await say('灰星局員「……もう むりな 強制起動は やめた。」'); return; }
+      G.flags.ashStarSeen = true;
+      await say('灰星局員「災害を とめるには 碧環を 強制起動する しかない！」');
+      await say('灰星局員「生態系？ そんな ことを いっている ばあいか。\nじゃまを するなら 力ずくだ！」');
+      const r = await BT().startTrainer({ id: 'ashStar_forest', name: '灰星局員', team: scaleTeam([[13, 10], [11, 11]]), money: 700, lose: ['ぐっ…… だが 災害は とまらんぞ。'] }, curMap.cave ? 'cave' : 'grass');
+      if (r === 'lose') { await blackout(); return; }
+      G.flags.ashStarForest = true;
+      window.StoryData.recordChoice(G, 'nature', 2);
+      await say('灰星局員「……この 現場の 強制起動は とりやめる。」');
+      await say('灰星局員「だが 本部は まだ あきらめて いない。\nいずれ 中央で 決着が つくだろう……」');
+      AU.play(curMap.music || 'town');
+    } else { // rescue
+      if (G.flags.ashStarRescued) { await say('灰星局員「たすかった…… この おんは わすれない。」'); return; }
+      await say('灰星局員「た、たすけて くれ…… 起動実験で とじこめられた……」');
+      G.flags.ashStarRescued = true;
+      window.StoryData.recordChoice(G, 'share', 2);
+      AU.sfx('confirm');
+      await say('あなたは 敵である 灰星局員を 救助した。');
+      await say('灰星局員「……敵の おれを たすけるとは。\n人も 自然も 切りすてない、そういう 道も あるのか……」');
+    }
   }
 
   /* ---- 障害物(能力ゲート扉)。req を満たすと leadsTo へ。開通は永続記録。 ---- */
@@ -1137,7 +1253,9 @@
   /* ================= 全滅 ================= */
   async function blackout() {
     await say('ユウの てもちの モンスターは ぜんめつした！');
-    G.money = Math.max(0, Math.floor(G.money / 2));
+    // 所持金半減は過剰なため、固定額(最大500)の見直しに変更
+    const penalty = Math.min(G.money, 500);
+    G.money = Math.max(0, G.money - penalty);
     await say('ユウは めのまえが まっくらに なった……');
     await fadeOut();
     G.party.forEach((m) => { m.hp = BT().calcStats(m.spId, m.lv).maxHp; m.status = null; m.moves.forEach((s) => s.pp = GD.MOVES[s.id].pp); });
@@ -1153,21 +1271,52 @@
     cutscene = true;
     AU.sfx('confirm');
     while (true) {
-      const i = await menu(['ずかん', 'モンスター', 'バッグ', 'レポート', 'トレーナーカード', 'とじる'], { cancelable: true, title: 'メニュー' });
-      if (i < 0 || i === 5) break;
+      const i = await menu(['ずかん', 'モンスター', 'バッグ', 'たびのきろく', 'レポート', 'トレーナーカード', 'とじる'], { cancelable: true, title: 'メニュー' });
+      if (i < 0 || i === 6) break;
       if (i === 0) await dexScreen();
       else if (i === 1) await partyScreen();
       else if (i === 2) await bagPick({ inBattle: false });
-      else if (i === 3) {
+      else if (i === 3) await journeyLog();
+      else if (i === 4) {
         if (await confirm('レポートに ぼうけんを かきのこしますか？')) {
           saveGame();
           AU.sfx('save');
           await say('レポートに しっかり かきのこした！');
         }
       }
-      else if (i === 4) await trainerCard();
+      else if (i === 5) await trainerCard();
     }
     cutscene = false;
+  }
+
+  /* ---- 旅記録: 現在の主目標・任意目標(サブクエ進捗)・環核・灰星局 ---- */
+  function mainObjective() {
+    const cores = GD.coreCount(G.flags);
+    if (!G.flags.starter) return '博士から 相棒を もらう';
+    if (G.flags.gameCleared) return `クリア済み — 選んだ結末: ${window.StoryData.ENDINGS[G.flags.endingId] ? window.StoryData.ENDINGS[G.flags.endingId].name : '？'}`;
+    if (cores < 2) return `碧樹圏・潮環圏で 環核を つなぐ (${cores}/4)`;
+    if (!G.flags.renResolved) return `中央遺構でレンと決着し、火脈圏・雷霧圏で4環核をそろえる (${cores}/4)`;
+    return '碧環中枢で 世界の ゆくえを えらぶ';
+  }
+  async function journeyLog() {
+    const cores = window.GameData.CORE_FLAGS.filter((f) => G.flags[f]);
+    const coreNames = { coreForest: '碧樹', coreTide: '潮環', coreFlare: '火脈', coreStorm: '雷霧' };
+    await say(`◆ 主目標\n${mainObjective()}`);
+    // 進行中の任意目標(受注済み・未完了)
+    const active = Object.keys(QUESTS).filter((q) => G.flags[`qa_${q}`] && !G.flags[q]);
+    const done = Object.keys(QUESTS).filter((q) => G.flags[q]);
+    if (active.length) {
+      for (const q of active) {
+        const m = QUESTS[q];
+        const prog = m.need ? `(${questProgress(q, m)}/${m.need})` : '';
+        await say(`○ ${m.title} ${prog}\n${m.objective || ''}`);
+      }
+    } else {
+      await say(`○ 進行中の 依頼は ない。\n達成した サブクエスト: ${done.length}件`);
+    }
+    await say(`◆ 環核: ${cores.length ? cores.map((c) => coreNames[c]).join('・') : 'まだ ない'} (${cores.length}/4)`);
+    const ash = G.flags.ashStarRescued ? '救助あり' : G.flags.ashStarForest ? '暴走を阻止' : G.flags.ashStarSeen ? '接触した' : '未接触';
+    await say(`◆ 灰星局: ${ash}\n◆ サブクエスト達成: ${done.length}/${Object.keys(QUESTS).length}`);
   }
 
   async function dexScreen() {

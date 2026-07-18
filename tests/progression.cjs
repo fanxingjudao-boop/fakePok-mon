@@ -73,13 +73,48 @@ console.log('1. 新ワールド採用 OK');
   console.log('6. 環核試練 4種 OK');
 }
 
-/* 7. サブクエストが8件以上、マップ上に配置されている */
+/* 7. サブクエスト: 8件以上、かつ非選択クエは現地の目標地点が need 個そろう(話すだけでない) */
 {
-  const quests = new Set();
+  const givers = new Map(); // quest -> giver npc
+  const targets = {};       // quest -> count of questTarget
+  for (const map of Object.values(MAPS)) {
+    for (const n of (map.npcs || [])) {
+      if (n.role === 'quest') givers.set(n.quest, n);
+      if (n.role === 'questTarget') targets[n.qt.quest] = (targets[n.qt.quest] || 0) + 1;
+    }
+  }
+  assert.ok(givers.size >= 8, `サブクエストが8件以上(実際 ${givers.size})`);
+  // game.js の QUESTS 定義(type/need)を静的に読み取り、目標地点数と突き合わせる
+  const gj = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'game.js'), 'utf8');
+  const block = gj.slice(gj.indexOf('const QUESTS = {'));
+  let multiStep = 0, choice = 0;
+  for (const q of givers.keys()) {
+    const re = new RegExp(`${q}:\\s*\\{[^}]*type:\\s*'(\\w+)'[^}]*?(?:need:\\s*(\\d+))?`);
+    const m = block.match(new RegExp(`${q}:\\s*\\{[\\s\\S]*?\\}`));
+    const seg = m ? m[0] : '';
+    const type = (seg.match(/type:\s*'(\w+)'/) || [])[1];
+    const need = Number((seg.match(/need:\s*(\d+)/) || [])[1] || 1);
+    if (type === 'choice') { choice++; continue; }
+    // 非選択クエは、現地目標が need 個 置かれていること(=話すだけで完了しない)
+    assert.ok((targets[q] || 0) >= need, `${q}(${type}) の目標地点が ${need}個 必要(実際 ${targets[q] || 0})`);
+    multiStep++;
+  }
+  assert.ok(multiStep >= 7, `多段クエストが7件以上(実際 ${multiStep})`);
+  console.log(`7. サブクエスト ${givers.size}件(多段 ${multiStep} / 選択 ${choice})目標地点も配置 OK`);
+}
+
+/* 7b. 環核試練の しるべ(各地域2つ)と 灰星局NPC が配置されている */
+{
+  const sw = {};
+  let ash = 0;
   for (const map of Object.values(MAPS))
-    for (const n of (map.npcs || [])) if (n.role === 'quest') quests.add(n.quest);
-  assert.ok(quests.size >= 8, `サブクエストが8件以上(実際 ${quests.size})`);
-  console.log(`7. サブクエスト ${quests.size}件 配置 OK`);
+    for (const n of (map.npcs || [])) {
+      if (n.role === 'trialSwitch') sw[n.ts.region] = (sw[n.ts.region] || 0) + 1;
+      if (n.role === 'ashStar') ash++;
+    }
+  for (const r of ['forest', 'tide', 'flare', 'storm']) assert.equal(sw[r], 2, `${r}に しるべ2つ`);
+  assert.ok(ash >= 2, '灰星局NPCが2体以上');
+  console.log(`7b. 試練しるべ 各2つ・灰星局 ${ash}体 配置 OK`);
 }
 
 /* 8. 3方針エンディングがスコアから導出される */

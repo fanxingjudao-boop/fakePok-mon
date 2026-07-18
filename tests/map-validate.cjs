@@ -52,6 +52,15 @@ for (const [id, map] of Object.entries(MAPS)) {
   }
   for (const o of (map.obstacles || [])) {
     if (o.leadsTo && !MAPS[o.leadsTo.to]) problems.push(`${id}: obstacle leadsTo→存在しない ${o.leadsTo.to}`);
+    // 障害物は「壁・障害タイル」に置く(でないと bump ハンドラが発火せず素通りする)
+    const t = map.rows[o.y] && map.rows[o.y][o.x];
+    if (t == null) { problems.push(`${id}: obstacle(${o.x},${o.y})がマップ外`); continue; }
+    if (!GD.isSolidTile(t)) problems.push(`${id}: obstacle(${o.x},${o.y})が歩行可能タイル '${t}' 上=素通りする`);
+    // 隣接に歩行可能タイルが無いと、プレイヤーが接触(bump)できない
+    const near = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => walkable(map, o.x + dx, o.y + dy));
+    if (!near) problems.push(`${id}: obstacle(${o.x},${o.y})に 歩行可能な となりが無い=接触できない`);
+    if (o.leadsTo && MAPS[o.leadsTo.to] && !walkable(MAPS[o.leadsTo.to], o.leadsTo.tx, o.leadsTo.ty))
+      problems.push(`${id}: obstacle 着地が壁 ${o.leadsTo.to}(${o.leadsTo.tx},${o.leadsTo.ty})`);
   }
 }
 
