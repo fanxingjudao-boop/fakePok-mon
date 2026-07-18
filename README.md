@@ -48,6 +48,22 @@
 ## 開発時の確認
 
 ```bash
-node --check monster-art.js
-node tests/monster-art-smoke.cjs
+node --check monster-art.js data.js game.js
+node tests/monster-art-smoke.cjs   # 28種の前面/背面スプライト生成
+node tests/map-validate.cjs        # 出入口接続・歩行可能性・到達性・rows共有検出
 ```
+
+## 刷新の進捗(CLAUDE_RENEWAL_BRIEF.md 対応)
+
+基盤スタッフを実装済み:
+
+- **完全オフライン**: Google Fonts への外部接続を廃止し、OS 同梱の丸/角ゴシックへフォールバック。
+- **セーブデータ v2**: `fakemon_save_v2` に保存。旧 `fakemon_save_v1` を自動でマイグレーション。
+  欠損・破損セーブでも起動不能にならないよう正規化(不正な現在地は回復地点へ退避)。
+- **ボックス機能**: モンスターセンターに「ボックス」端末。手持ち⇔ボックスの預け／引き出し／一覧・詳細。
+- **通行ゲートの共通化**: 出入口ごとの `requirements` を `GameData.meetsRequirements()` で共通判定。
+  ヴィクトリーロードは全 8 バッジ判定へ修正。ミナモ→ルート2 を NPC 依存でないエッジ条件化(迂回不可)。
+- **マップ検証**: `tests/map-validate.cjs` で接続・歩行・到達性を検査(`rows` 共有マップは固有化対象として警告)。
+
+後続(地域・物語の本体刷新)は `CLAUDE_RENEWAL_BRIEF.md` の実装順に沿って進行:
+固有マップ4地域＋中央遺構、環核試練、サブクエスト8件、旅記録／マップUI、分岐エンディング。

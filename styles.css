@@ -15,7 +15,9 @@
 html, body {
   height: 100%;
   background: radial-gradient(circle at 50% 20%, #34344a 0%, #17171f 70%);
-  font-family: 'DotGothic16', 'MS Gothic', 'Hiragino Kaku Gothic ProN', monospace;
+  /* オフライン: 外部フォントに依存せず、OS同梱の丸/角ゴシックにフォールバック */
+  font-family: 'Hiragino Maru Gothic ProN', 'Hiragino Kaku Gothic ProN', 'BIZ UDGothic',
+               'Yu Gothic', 'Meiryo', 'MS Gothic', system-ui, sans-serif;
   color: var(--text);
   overflow: hidden;
   touch-action: manipulation;

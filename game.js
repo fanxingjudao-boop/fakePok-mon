@@ -13,7 +13,9 @@
 
   const TILE = 32;
   const VIEW_W = 15, VIEW_H = 11;
-  const SAVE_KEY = 'fakemon_save_v1';
+  const SAVE_VERSION = 2;
+  const SAVE_KEY = 'fakemon_save_v2';
+  const SAVE_KEY_V1 = 'fakemon_save_v1';
 
   /* ================= 状態 ================= */
   let G = null;            // セーブ対象の全状態
@@ -25,7 +27,7 @@
   let npcOffsets = {};     // 歩行アニメ用 npcId → {px,py}
 
   const newGame = () => ({
-    v: 1,
+    v: SAVE_VERSION,
     name: 'ユウ', rivalName: 'レン',
     money: 3000,
     bag: { potion: 2 },
@@ -463,9 +465,12 @@
   async function attemptEdgeExit(dir) {
     const ee = curMap.edgeExits && curMap.edgeExits[dir];
     if (!ee || !ee.tiles.some(([x, y]) => x === G.x && y === G.y)) return;
-    // ゲート判定
-    const gate = GATES.find((g) => g.map === curMap.id && g.dir === dir && g.cond());
-    if (gate) { cutscene = true; await say(gate.text); cutscene = false; return; }
+    // ゲート判定(データ側 requirements を共通関数で評価)
+    const gate = gateFor(curMap.id, dir);
+    if (gate) {
+      const res = GD.meetsRequirements(gate.req, { flags: G.flags, party: G.party });
+      if (!res.ok) { cutscene = true; await say(res.text); cutscene = false; return; }
+    }
     cutscene = true;
     await fadeOut();
     loadMap(ee.to, ee.tx, ee.ty, dir);
@@ -474,12 +479,17 @@
     afterWarpStep();
   }
 
+  // 通行止めは NPC の立ち位置ではなく、出入口ごとの requirements で判定する(迂回不可)。
   const GATES = [
-    { map: 'hometown', dir: 'up', cond: () => !G.flags.starter,
-      text: 'カエデはかせが けんきゅうじょで\nまっている みたいだ。' },
-    { map: 'tsukimi', dir: 'up', cond: () => !G.flags.badge8,
-      text: 'けいびいん「ここから さきは ヴィクトリーロード。\n8つの ジムバッジが ないと とおれません！」' }
+    { map: 'hometown', dir: 'up',
+      req: { allFlags: ['starter'], text: 'カエデはかせが けんきゅうじょで\nまっている みたいだ。' } },
+    { map: 'minamo', dir: 'right',
+      req: { allFlags: ['badge1'], text: 'まもりのもん「ジムバッジが なければ\nこの さきの ルート2へは とおせません！」' } },
+    { map: 'tsukimi', dir: 'up',
+      req: { allBadges: true,
+        text: 'けいびいん「ここから さきは ヴィクトリーロード。\n8つの ジムバッジ すべてが ないと とおれません！」' } }
   ];
+  const gateFor = (mapId, dir) => GATES.find((g) => g.map === mapId && g.dir === dir);
 
   async function afterWarpStep() {
     // ワープ直後のタイルイベント (エンカウント無し)
@@ -716,13 +726,65 @@
   }
 
   async function roleNurse() {
-    await say('「こんにちは！ モンスターセンターへ ようこそ！\nモンスターを おあずかり しますね。」');
-    AU.jingle('heal');
-    await sleep(1000);
-    G.party.forEach((m) => { m.hp = BT().calcStats(m.spId, m.lv).maxHp; m.status = null; m.moves.forEach((s) => s.pp = GD.MOVES[s.id].pp); });
+    await say('「こんにちは！ モンスターセンターへ ようこそ！」');
     G.healPoint = { mapId: G.mapId, x: 5, y: 5 };
-    await say('「おまたせ しました！\nモンスターは すっかり げんきに なりましたよ！」');
+    while (true) {
+      const i = await menu(['かいふく', 'ボックス', 'とじる'], { cancelable: true, title: 'モンスターセンター' });
+      if (i < 0 || i === 2) break;
+      if (i === 0) {
+        AU.jingle('heal');
+        await sleep(1000);
+        G.party.forEach((m) => { m.hp = BT().calcStats(m.spId, m.lv).maxHp; m.status = null; m.moves.forEach((s) => s.pp = GD.MOVES[s.id].pp); });
+        await say('「モンスターは すっかり げんきに なりましたよ！」');
+      } else if (i === 1) {
+        await boxScreen();
+      }
+    }
     await say('「またの ごりようを おまちして います！」');
+  }
+
+  /* ボックスからの選択(手持ちUIに準じた簡易版) */
+  function boxPick(title) {
+    if (!G.box.length) return Promise.resolve(-2); // -2: 空
+    const items = G.box.map((m) => {
+      const st = BT().calcStats(m.spId, m.lv);
+      return { label: `${monName(m)}`, sub: `Lv${m.lv}  HP${m.hp}/${st.maxHp}` };
+    });
+    return menu(items, { title, cancelable: true, wide: true });
+  }
+
+  async function boxScreen() {
+    while (true) {
+      const i = await menu([
+        { label: 'あずける', sub: `手持ち ${G.party.length}/6` },
+        { label: 'ひきだす', sub: `ボックス ${G.box.length}` },
+        { label: 'いちらん', sub: '' },
+        { label: 'もどる', sub: '' }
+      ], { cancelable: true, wide: true, title: 'ボックスたんまつ' });
+      if (i < 0 || i === 3) return;
+      if (i === 0) {
+        if (G.party.length <= 1) { await say('さいごの 1ぴきは あずけられない！'); continue; }
+        const p = await partyPick({ title: 'どれを あずける？' });
+        if (p < 0) continue;
+        const mon = G.party.splice(p, 1)[0];
+        G.box.push(mon);
+        AU.sfx('confirm');
+        await say(`${monName(mon)}を ボックスに あずけた。`);
+      } else if (i === 1) {
+        if (G.party.length >= 6) { await say('手持ちが いっぱいだ！'); continue; }
+        const b = await boxPick('どれを ひきだす？');
+        if (b === -2) { await say('ボックスは からっぽだ。'); continue; }
+        if (b < 0) continue;
+        const mon = G.box.splice(b, 1)[0];
+        G.party.push(mon);
+        AU.sfx('confirm');
+        await say(`${monName(mon)}を 手持ちに くわえた。`);
+      } else if (i === 2) {
+        const b = await boxPick(`ボックス (${G.box.length}ひき)`);
+        if (b === -2) { await say('ボックスは からっぽだ。'); continue; }
+        if (b >= 0) await summaryScreen(G.box[b]);
+      }
+    }
   }
 
   async function roleClerk(ent) {
@@ -1028,18 +1090,66 @@
   /* ================= セーブ/ロード ================= */
   function saveGame(silent) {
     try {
+      G.v = SAVE_VERSION;
       localStorage.setItem(SAVE_KEY, JSON.stringify(G));
       return true;
     } catch (e) { console.error(e); return false; }
   }
+
+  // 旧バージョン/欠損/破損セーブを安全なv2形へ正規化する。
+  // 復旧不能な場合のみ null を返し、起動不能にはしない。
+  function normalizeSave(d) {
+    if (!d || typeof d !== 'object') return null;
+    if (!Array.isArray(d.party) || d.party.length === 0) return null; // 進行前は新規扱い
+    const def = newGame();
+    const out = {
+      ...def, ...d,
+      v: SAVE_VERSION,
+      bag: (d.bag && typeof d.bag === 'object') ? d.bag : { ...def.bag },
+      box: Array.isArray(d.box) ? d.box : [],
+      flags: (d.flags && typeof d.flags === 'object') ? d.flags : {},
+      dex: {
+        seen: (d.dex && d.dex.seen && typeof d.dex.seen === 'object') ? d.dex.seen : {},
+        caught: (d.dex && d.dex.caught && typeof d.dex.caught === 'object') ? d.dex.caught : {}
+      },
+      money: Number.isFinite(d.money) ? d.money : def.money,
+      playSec: Number.isFinite(d.playSec) ? d.playSec : 0
+    };
+    // 手持ちの各個体を最低限検証(壊れた個体は除外)
+    out.party = out.party.filter((m) => m && GD.speciesById(m.spId) && Number.isFinite(m.lv));
+    if (!out.party.length) return null;
+    out.box = out.box.filter((m) => m && GD.speciesById(m.spId) && Number.isFinite(m.lv));
+    // 現在地マップ/座標の健全化。存在しない・壁内なら回復地点→homeへ退避
+    const validPos = (mapId, x, y) => {
+      const map = GD.MAPS[mapId];
+      if (!map) return false;
+      const t = map.rows[y] && map.rows[y][x];
+      return t != null && !GD.isSolidTile(t);
+    };
+    if (!validPos(out.mapId, out.x, out.y)) {
+      const hp = out.healPoint && GD.MAPS[out.healPoint.mapId] ? out.healPoint : def.healPoint;
+      out.mapId = hp.mapId; out.x = hp.x; out.y = hp.y;
+      if (!validPos(out.mapId, out.x, out.y)) { out.mapId = def.mapId; out.x = def.x; out.y = def.y; }
+    }
+    if (!out.healPoint || !GD.MAPS[out.healPoint.mapId]) out.healPoint = { ...def.healPoint };
+    return out;
+  }
+
   function loadSave() {
-    try {
-      const s = localStorage.getItem(SAVE_KEY);
-      if (!s) return null;
-      const d = JSON.parse(s);
-      if (!d || d.v !== 1 || !Array.isArray(d.party)) return null;
-      return d;
-    } catch (e) { return null; }
+    // v2 を優先。無ければ v1 を読み、正規化して移行する。
+    for (const key of [SAVE_KEY, SAVE_KEY_V1]) {
+      let raw;
+      try { raw = localStorage.getItem(key); } catch (e) { raw = null; }
+      if (!raw) continue;
+      let d = null;
+      try { d = JSON.parse(raw); } catch (e) { console.warn('壊れたセーブを検出:', key, e); continue; }
+      const norm = normalizeSave(d);
+      if (norm) {
+        if (key === SAVE_KEY_V1) { try { localStorage.setItem(SAVE_KEY, JSON.stringify(norm)); } catch (e) {} }
+        return norm;
+      }
+    }
+    return null;
   }
 
   /* ================= ゲームループ ================= */

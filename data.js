@@ -964,9 +964,34 @@
   const isSolidTile = (c) => solidChars.has(c);
   const isEncounterTile = (c) => c === '%' || c === 'x';
 
+  const hasAllBadges = (flags) => BADGES.every((b) => flags && flags[b.id]);
+  const badgeCount = (flags) => BADGES.reduce((n, b) => n + (flags && flags[b.id] ? 1 : 0), 0);
+
+  /* 通行条件の共通判定。data側に requirements を持たせ、意味とエラー文をデータで定義する。
+   * requirements: { allFlags:[...], anyFlags:[...], allBadges:true, minPartyLevel:N, text:'…' }
+   * ctx: { flags, party } を渡す。 戻り値 { ok, text }
+   */
+  function meetsRequirements(req, ctx) {
+    if (!req) return { ok: true };
+    const flags = (ctx && ctx.flags) || {};
+    const party = (ctx && ctx.party) || [];
+    if (req.allBadges && !hasAllBadges(flags))
+      return { ok: false, text: req.text || `8つの ジムバッジが ひつようだ！(いま ${badgeCount(flags)}こ)` };
+    if (req.allFlags && !req.allFlags.every((f) => flags[f]))
+      return { ok: false, text: req.text || 'まだ ここは とおれないようだ。' };
+    if (req.anyFlags && !req.anyFlags.some((f) => flags[f]))
+      return { ok: false, text: req.text || 'まだ ここは とおれないようだ。' };
+    if (req.minPartyLevel) {
+      const maxLv = party.reduce((mx, m) => Math.max(mx, m.lv || 0), 0);
+      if (maxLv < req.minPartyLevel)
+        return { ok: false, text: req.text || `つよさが たりない(Lv${req.minPartyLevel}いじょう ひつよう)。` };
+    }
+    return { ok: true };
+  }
+
   window.GameData = {
     TYPES, TYPE_CHART, typeMult, MOVES, SPECIES, speciesById,
     ITEMS, MART_STOCK, BADGES, MAPS, RIVAL_TEAMS, STARTERS,
-    isSolidTile, isEncounterTile
+    isSolidTile, isEncounterTile, hasAllBadges, badgeCount, meetsRequirements
   };
 })();
