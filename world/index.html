@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ポケットレジェンド ワールド構造プロトタイプ</title>
+<style>
+/* 非線形ワールド構造プロトタイプ — ダークファンタジーUI(単一テーマ) */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg:#0b1120; --panel:rgba(18,27,48,.74); --line:rgba(120,150,210,.16);
+  --ink:#e9eefc; --ink-dim:#9fb0d8; --gold:#e8c24a;
+  --fire:#f0603a; --water:#4a9fe8; --rock:#6fae5a; --story:#c9903a;
+  font-family:'Hiragino Maru Gothic ProN','Rounded Mplus 1c','BIZ UDPGothic','Yu Gothic',system-ui,sans-serif;
+}
+body { background:radial-gradient(1000px 500px at 20% -80px,#23305c 0%,transparent 60%),radial-gradient(900px 500px at 100% 10%,#1b2a4a 0%,transparent 55%),var(--bg);
+  color:var(--ink); min-height:100vh; padding:26px 18px 70px; display:flex; flex-direction:column; align-items:center; }
+header { text-align:center; margin-bottom:20px; max-width:860px; }
+.kicker { display:inline-block; font-size:11px; letter-spacing:.3em; color:#8ea2d8; border:1px solid #33436e; border-radius:999px; padding:5px 15px 4px 18px; margin-bottom:12px; }
+h1 { font-size:clamp(21px,4vw,30px); font-weight:800; text-wrap:balance; } h1 em { font-style:normal; color:var(--gold); }
+.lede { margin-top:9px; font-size:13.5px; line-height:1.7; color:var(--ink-dim); }
+.wrap { display:flex; gap:26px; align-items:flex-start; flex-wrap:wrap; justify-content:center; width:100%; max-width:1120px; }
+.phone { width:400px; border-radius:40px; padding:11px; background-color:#171f38; box-shadow:0 30px 72px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.12); }
+.mapshell { position:relative; width:378px; height:630px; border-radius:30px; overflow:hidden; background:#0a1424; }
+#terrain,#edges { position:absolute; inset:0; width:100%; height:100%; } #edges { pointer-events:none; }
+.map-hud { position:absolute; top:12px; left:12px; right:12px; display:flex; justify-content:space-between; gap:8px; pointer-events:none; z-index:6; }
+.hud-pill { background:rgba(10,16,30,.72); backdrop-filter:blur(8px); border:1px solid var(--line); border-radius:999px; padding:7px 13px; font-size:12px; font-weight:800; display:flex; align-items:center; gap:7px; box-shadow:0 4px 14px rgba(0,0,0,.35); }
+.hud-pill .g { color:var(--gold); } .hud-pill .c { color:#7fe3a0; }
+.node { position:absolute; transform:translate(-50%,-50%); z-index:5; border:none; background:none; cursor:pointer; padding:0; }
+.node .pin { width:42px; height:42px; border-radius:13px; display:grid; place-items:center; font-size:20px; background:linear-gradient(160deg,#2b3a5e,#1b2743); border:2px solid rgba(150,180,240,.35); box-shadow:0 6px 16px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.2); transition:all .25s; position:relative; }
+.node .lbl { position:absolute; left:50%; top:46px; transform:translateX(-50%); white-space:nowrap; font-size:10.5px; font-weight:800; color:#dfe8ff; text-shadow:0 1px 3px #000,0 0 6px #000; }
+.node.hub .pin { background:linear-gradient(160deg,#d24a4a,#8f2e2e); border-color:#f6d060; width:50px; height:50px; font-size:24px; }
+.node.reach .pin { border-color:rgba(232,194,74,.85); } .node.reach.boss .pin { border-color:#ff7a5a; }
+.node.locked .pin { filter:grayscale(.7) brightness(.62); border-color:rgba(120,140,180,.3); } .node.locked .lbl { color:#8a97b8; }
+.node.cleared .pin { box-shadow:0 0 0 2px #7fe3a0,0 6px 16px rgba(0,0,0,.5); }
+.node .badge { position:absolute; top:-7px; right:-7px; width:20px; height:20px; border-radius:50%; font-size:11px; display:grid; place-items:center; box-shadow:0 2px 6px rgba(0,0,0,.5); border:1.5px solid #0a1424; }
+.node .badge.q { background:#3d7be0; } .node .badge.lock { background:#5a6488; } .node .badge.chest { background:var(--gold); }
+.node.sel .pin { outline:3px solid var(--gold); outline-offset:2px; }
+.node.pulse .pin { animation:pulse 1.2s ease-out infinite; }
+@keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(232,194,74,.6),0 6px 16px rgba(0,0,0,.5);} 70%{box-shadow:0 0 0 12px rgba(232,194,74,0),0 6px 16px rgba(0,0,0,.5);} 100%{box-shadow:0 0 0 0 rgba(232,194,74,0),0 6px 16px rgba(0,0,0,.5);} }
+.gatetag { position:absolute; transform:translate(-50%,-50%); z-index:4; pointer-events:none; font-size:9.5px; font-weight:800; padding:2px 7px; border-radius:999px; white-space:nowrap; background:rgba(10,16,30,.82); border:1px solid; box-shadow:0 2px 8px rgba(0,0,0,.4); display:flex; align-items:center; gap:4px; }
+.sheet { position:absolute; left:0; right:0; bottom:0; z-index:8; transform:translateY(110%); transition:transform .3s cubic-bezier(.3,.9,.3,1); background:rgba(12,19,36,.92); backdrop-filter:blur(16px); border-radius:24px 24px 30px 30px; padding:15px 17px 20px; box-shadow:0 -14px 40px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.1); border-top:1px solid var(--line); }
+.sheet.open { transform:translateY(0); }
+.sheet-x { position:absolute; right:14px; top:12px; background:none; border:none; color:var(--ink-dim); font-size:18px; cursor:pointer; }
+.sheet-top { display:flex; align-items:center; gap:11px; margin-bottom:8px; }
+.sheet-icon { width:42px; height:42px; border-radius:12px; display:grid; place-items:center; font-size:22px; background:rgba(255,255,255,.07); }
+.sheet-name { font-size:16px; font-weight:800; } .sheet-type { font-size:11px; color:var(--ink-dim); margin-top:2px; }
+.sheet-state { margin-left:auto; font-size:11px; font-weight:800; padding:4px 11px; border-radius:999px; }
+.st-reach { background:rgba(127,227,160,.16); color:#7fe3a0; } .st-lock { background:rgba(160,120,120,.16); color:#e79a9a; } .st-clear { background:rgba(232,194,74,.16); color:var(--gold); }
+.sheet-desc { font-size:12.5px; line-height:1.75; color:#cfd9f4; margin:6px 0 10px; }
+.sheet-rows { display:flex; flex-direction:column; gap:7px; }
+.srow { display:flex; align-items:center; gap:9px; font-size:12px; background:rgba(255,255,255,.05); border-radius:11px; padding:8px 11px; }
+.srow .ri { width:22px; text-align:center; } .srow b { color:#fff; } .srow .need { margin-left:auto; font-weight:800; font-size:11px; padding:2px 9px; border-radius:999px; }
+.sheet-act { margin-top:11px; width:100%; border:none; cursor:pointer; font:inherit; font-weight:800; font-size:14px; color:#fff; padding:13px; border-radius:14px; background:linear-gradient(135deg,#ff8a5a,#f0483f); box-shadow:0 5px 0 rgba(0,0,0,.3); }
+.sheet-act:active { transform:translateY(3px); box-shadow:0 2px 0 rgba(0,0,0,.3); }
+.sheet-act.done { background:linear-gradient(135deg,#3aa06a,#2a7a50); } .sheet-act:disabled { background:#3a4460; box-shadow:0 5px 0 rgba(0,0,0,.3); opacity:.6; cursor:not-allowed; }
+.side { flex:1 1 380px; max-width:440px; display:flex; flex-direction:column; gap:16px; }
+.card { background:var(--panel); border:1px solid var(--line); border-radius:20px; padding:16px 17px; backdrop-filter:blur(6px); }
+.card h2 { font-size:13px; letter-spacing:.08em; color:var(--gold); margin-bottom:4px; }
+.card .sub { font-size:11.5px; color:var(--ink-dim); margin-bottom:12px; line-height:1.6; }
+.starters { display:flex; flex-direction:column; gap:10px; }
+.starter { display:flex; align-items:center; gap:12px; width:100%; text-align:left; cursor:pointer; font:inherit; color:var(--ink); background:rgba(255,255,255,.04); border:1.5px solid rgba(255,255,255,.08); border-radius:16px; padding:10px 12px; transition:all .2s; }
+.starter canvas { width:58px; height:58px; flex:0 0 auto; filter:drop-shadow(0 4px 6px rgba(0,0,0,.4)); }
+.starter .si { flex:1; } .starter .sname { font-size:14px; font-weight:800; display:flex; align-items:center; gap:7px; }
+.starter .stype { font-size:10px; font-weight:800; padding:1px 8px; border-radius:999px; color:#fff; }
+.starter .sability { font-size:11px; color:var(--ink-dim); margin-top:3px; } .starter .sability b { color:#fff; }
+.starter .toggle { flex:0 0 auto; width:46px; height:26px; border-radius:999px; background:#2a3350; position:relative; transition:background .2s; }
+.starter .toggle::after { content:''; position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:#8a97b8; transition:all .2s; }
+.starter.on { border-color:currentColor; background:rgba(255,255,255,.08); }
+.starter.on.fire { color:var(--fire); } .starter.on.water { color:var(--water); } .starter.on.rock { color:var(--rock); }
+.starter.on .toggle { background:currentColor; } .starter.on .toggle::after { left:23px; background:#fff; }
+.checks { display:flex; flex-direction:column; gap:9px; }
+.chk { display:flex; gap:11px; align-items:flex-start; }
+.chk .n { flex:0 0 auto; width:24px; height:24px; border-radius:8px; background:rgba(255,255,255,.08); display:grid; place-items:center; font-size:12px; font-weight:800; color:var(--gold); }
+.chk.done .n { background:var(--gold); color:#1a1408; }
+.chk .cname { font-size:12.5px; font-weight:800; } .chk .cval { font-size:11px; color:var(--ink-dim); margin-top:2px; line-height:1.55; }
+.legend { display:flex; flex-wrap:wrap; gap:8px; } .lg { font-size:10.5px; font-weight:800; padding:3px 9px; border-radius:999px; display:flex; align-items:center; gap:5px; border:1px solid; }
+.toast { position:fixed; left:50%; bottom:26px; transform:translate(-50%,30px); z-index:40; opacity:0; transition:all .3s; background:rgba(14,22,42,.96); border:1px solid var(--gold); border-radius:14px; padding:11px 20px; font-size:13px; font-weight:800; box-shadow:0 12px 34px rgba(0,0,0,.5); max-width:90vw; text-align:center; }
+.toast.show { opacity:1; transform:translate(-50%,0); }
+.foot { max-width:860px; margin-top:22px; text-align:center; font-size:12px; color:var(--ink-dim); line-height:1.8; } .foot b { color:var(--gold); }
+@media (max-width:860px) { .wrap { flex-direction:column; align-items:center; } .side { max-width:400px; } }
+@media (prefers-reduced-motion:reduce) { * { animation:none !important; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="kicker">WORLD STRUCTURE PROTOTYPE</div>
+  <h1>キャラの力で<em>地形が開く</em>非線形ワールド設計</h1>
+  <div class="lede">縦長の一本道をやめ、拠点から3方向へ分岐。3体の相棒の「フィールド能力」をON/OFFすると、
+  鍵付きルートが実際に開通し、行ける場所・拾える隠し宝が変わります。右の相棒カードを押して試してください。</div>
+</header>
+<div class="wrap">
+  <div class="device"><div class="phone"><div class="mapshell">
+    <canvas id="terrain"></canvas>
+    <canvas id="edges"></canvas>
+    <div class="map-hud">
+      <div class="hud-pill"><span>🗺️</span> セイリュウ地方</div>
+      <div class="hud-pill"><span class="c" id="hud-reach">2</span>/10 到達　<span class="g" id="hud-chest">0</span>💎</div>
+    </div>
+    <div id="nodes"></div>
+    <div id="gatetags"></div>
+    <div class="sheet" id="sheet"></div>
+  </div></div></div>
+  <div class="side">
+    <div class="card"><h2>3体の相棒 ＝ 3つの鍵</h2>
+      <div class="sub">それぞれ固有の「フィールド能力」を持ち、対応する地形を突破できます。押して能力をON。</div>
+      <div class="starters" id="starters"></div></div>
+    <div class="card"><h2>この地図が満たす6つの構造</h2>
+      <div class="sub">単なる縦長マップではなく、寿命を伸ばす骨格。状態はライブ更新します。</div>
+      <div class="checks" id="checks"></div></div>
+    <div class="card"><h2>ゲート凡例</h2>
+      <div class="legend">
+        <span class="lg" style="color:var(--fire);border-color:var(--fire)">🔥 いばら・暗闇</span>
+        <span class="lg" style="color:var(--water);border-color:var(--water)">🌊 水路・海</span>
+        <span class="lg" style="color:var(--rock);border-color:var(--rock)">🪨 落石・谷</span>
+        <span class="lg" style="color:var(--story);border-color:var(--story)">🗝️ 物語(撃破)</span>
+      </div></div>
+  </div>
+</div>
+<div class="foot">
+  これは<b>設計プロトタイプ</b>です。地図・キャラはすべてコード生成(著作権フリー)。<br>
+  ロジックは <b>world-data.js</b>(DOM非依存モデル)に分離。これが本編マップ改修の中核仕様になります。
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="world-data.js"></script>
+<script>
+(() => {
+  const W = window.WorldModel;
+  const $ = (s, r=document) => r.querySelector(s);
+  const MW = 378, MH = 630;
+  const state = W.createState();
+  const R = W.REGIONS, E = W.EDGES, ABIL = W.ABILITIES;
+
+  /* ---- 地形(静的) ---- */
+  const tc = $('#terrain'), dpr = 2; tc.width = MW*dpr; tc.height = MH*dpr;
+  const g = tc.getContext('2d'); g.scale(dpr,dpr);
+  const seeded = (s0)=>{ let s=s0>>>0; return ()=> (s=(s*1664525+1013904223)>>>0)/4294967296; };
+  const rng = seeded(77);
+  (function terrain(){
+    const sea=g.createLinearGradient(0,0,MW,MH); sea.addColorStop(0,'#12355f'); sea.addColorStop(1,'#0a2038');
+    g.fillStyle=sea; g.fillRect(0,0,MW,MH);
+    for(let i=0;i<40;i++){ g.fillStyle='rgba(120,180,230,0.05)'; g.fillRect(0,rng()*MH,MW,1.2); }
+    g.save(); g.beginPath();
+    const pts=[[40,20],[300,30],[350,150],[330,300],[360,430],[300,560],[150,610],[40,560],[20,360],[50,180]];
+    g.moveTo(pts[0][0],pts[0][1]);
+    for(let i=0;i<pts.length;i++){ const a=pts[i],b=pts[(i+1)%pts.length]; g.quadraticCurveTo(a[0],a[1],(a[0]+b[0])/2,(a[1]+b[1])/2); }
+    g.closePath(); g.shadowColor='rgba(230,215,150,0.5)'; g.shadowBlur=10;
+    const land=g.createLinearGradient(0,0,0,MH); land.addColorStop(0,'#5f9a55'); land.addColorStop(.5,'#4f8a48'); land.addColorStop(1,'#3f7a40');
+    g.fillStyle=land; g.fill(); g.shadowBlur=0; g.clip();
+    for(let i=0;i<90;i++){ const x=rng()*MW,y=rng()*MH,r=14+rng()*36; g.fillStyle=`rgba(${rng()<.5?'40,110,50':'130,190,110'},0.10)`; g.beginPath(); g.ellipse(x,y,r,r*.6,0,0,7); g.fill(); }
+    g.strokeStyle='#3f86d0'; g.lineWidth=15; g.lineCap='round';
+    g.beginPath(); g.moveTo(195,55); g.bezierCurveTo(210,120,175,180,185,215); g.bezierCurveTo(195,300,150,360,170,410); g.bezierCurveTo(185,470,150,540,120,610); g.stroke();
+    g.strokeStyle='rgba(150,210,255,0.5)'; g.lineWidth=5; g.stroke();
+    for(const [mx,my,ms] of [[55,150,26],[95,120,20],[60,230,22]]){
+      g.fillStyle='#5a5f6e'; g.beginPath(); g.moveTo(mx-ms,my+ms); g.lineTo(mx,my-ms); g.lineTo(mx+ms,my+ms); g.closePath(); g.fill();
+      g.fillStyle='#e9edf6'; g.beginPath(); g.moveTo(mx-ms*.3,my); g.lineTo(mx,my-ms); g.lineTo(mx+ms*.3,my); g.closePath(); g.fill(); }
+    function tree(cx,cy,s){ g.fillStyle='rgba(20,40,20,0.25)'; g.beginPath(); g.ellipse(cx,cy+s*.8,s,s*.35,0,0,7); g.fill();
+      const tg=g.createRadialGradient(cx-s*.3,cy-s*.4,s*.2,cx,cy,s*1.1); tg.addColorStop(0,'#57b352'); tg.addColorStop(1,'#2c7a38');
+      g.fillStyle=tg; g.beginPath(); g.arc(cx,cy,s,0,7); g.fill(); g.beginPath(); g.arc(cx-s*.6,cy+s*.2,s*.6,0,7); g.fill(); g.beginPath(); g.arc(cx+s*.6,cy+s*.2,s*.6,0,7); g.fill(); }
+    for(const [x,y,s] of [[300,120,15],[330,180,17],[315,240,14],[290,400,16],[320,470,15],[110,470,15],[80,520,14],[250,540,15]]) tree(x,y,s);
+    g.fillStyle='rgba(150,80,200,0.25)'; g.beginPath(); g.ellipse(52,352,40,30,0,0,7); g.fill();
+    g.restore();
+    g.fillStyle='rgba(180,220,255,0.7)'; g.fillRect(188,44,8,26);
+  })();
+
+  /* ---- エッジ ---- */
+  const ec=$('#edges'); ec.width=MW*dpr; ec.height=MH*dpr; const eg=ec.getContext('2d'); eg.scale(dpr,dpr);
+  const px=(id)=>({ x:R[id].x/100*MW, y:R[id].y/100*MH });
+  function drawEdges(){
+    eg.clearRect(0,0,MW,MH);
+    for(const [a,b,gate] of E){ const pa=px(a),pb=px(b),ok=W.gateOk(gate,state); eg.lineCap='round';
+      if(ok){ eg.setLineDash([]); eg.strokeStyle=gate?'rgba(232,194,74,0.9)':'rgba(228,210,150,0.75)'; eg.lineWidth=gate?4:5; if(gate){ eg.shadowColor=W.gateColor(gate); eg.shadowBlur=8; } }
+      else { eg.setLineDash([5,7]); eg.strokeStyle=W.gateColor(gate); eg.globalAlpha=.55; eg.lineWidth=3; }
+      eg.beginPath(); eg.moveTo(pa.x,pa.y); eg.lineTo(pb.x,pb.y); eg.stroke(); eg.shadowBlur=0; eg.globalAlpha=1; eg.setLineDash([]); }
+  }
+
+  /* ---- ノード & タグ ---- */
+  const nodesEl=$('#nodes'), tagsEl=$('#gatetags'), nodeEls={};
+  for(const id in R){ const r=R[id]; const b=document.createElement('button');
+    b.className='node'+(r.hub?' hub':'')+(r.boss?' boss':''); b.style.left=r.x+'%'; b.style.top=r.y+'%';
+    b.innerHTML=`<div class="pin">${r.icon}</div><div class="lbl">${r.name}</div>`;
+    b.addEventListener('click',()=>openSheet(id)); nodesEl.appendChild(b); nodeEls[id]=b; }
+  function buildTags(){ tagsEl.innerHTML='';
+    for(const [a,b,gate] of E){ if(!gate) continue; const pa=px(a),pb=px(b),mx=(pa.x+pb.x)/2,my=(pa.y+pb.y)/2;
+      const t=document.createElement('div'); t.className='gatetag'; t.style.left=(mx/MW*100)+'%'; t.style.top=(my/MH*100)+'%';
+      const ok=W.gateOk(gate,state), col=W.gateColor(gate); t.style.color=col; t.style.borderColor=col;
+      const ab= gate==='story'?{icon:'🗝️',name:'鍵'}:ABIL[gate]; t.innerHTML=`${ok?'✓':ab.icon} ${ab.name}`; t.style.opacity=ok?'0.65':'1'; tagsEl.appendChild(t); } }
+
+  /* ---- 詳細シート ---- */
+  let selId=null;
+  function openSheet(id){
+    selId=id; const r=R[id], reach=W.reachable(state), isReach=reach.has(id);
+    Object.values(nodeEls).forEach(n=>n.classList.remove('sel')); nodeEls[id].classList.add('sel');
+    const cleared=!!state.cleared[id];
+    const st = cleared?['クリア済み','st-clear'] : isReach?['到達可能','st-reach'] : ['未到達','st-lock'];
+    let rows='';
+    if(r.quest) rows+=`<div class="srow"><span class="ri">❗</span>サブクエスト <b>${r.quest}</b></div>`;
+    (r.reward||[]).forEach(rw=>{ const need= rw.gate?`<span class="need" style="color:${W.gateColor(rw.gate)};background:${W.gateColor(rw.gate)}22">${ABIL[rw.gate]?ABIL[rw.gate].icon+ABIL[rw.gate].name:'鍵'}</span>`:'';
+      rows+=`<div class="srow"><span class="ri">${rw.icon}</span><b>${rw.text}</b>${need}</div>`; });
+    let actBtn='';
+    if(id==='port' && isReach && !state.flags.portCleared) actBtn=`<button class="sheet-act" id="clearPort">⚔️ 海賊船長を倒す(封城の鍵を得る)</button>`;
+    else if(id==='port' && state.flags.portCleared) actBtn=`<button class="sheet-act done" disabled>✓ 撃破済み — 封城が解放された</button>`;
+    else if(!isReach) actBtn=`<button class="sheet-act" disabled>🔒 ${W.missingKey(id,state)} が必要</button>`;
+    const icon = (id==='sealed'&&state.flags.portCleared)?r.openIcon:r.icon;
+    const kind = (id==='sealed'&&state.flags.portCleared)?r.openKind:r.kind;
+    const sheet=$('#sheet');
+    sheet.innerHTML=`<button class="sheet-x" id="sx">✕</button>
+      <div class="sheet-top"><div class="sheet-icon">${icon}</div>
+        <div><div class="sheet-name">${r.name}</div><div class="sheet-type">${kind}</div></div>
+        <div class="sheet-state ${st[1]}">${st[0]}</div></div>
+      <div class="sheet-desc">${r.desc}</div>
+      <div class="sheet-rows">${rows||'<div class="srow"><span class="ri">·</span>特筆事項なし</div>'}</div>${actBtn}`;
+    sheet.classList.add('open');
+    $('#sx').onclick=()=>{ sheet.classList.remove('open'); nodeEls[id].classList.remove('sel'); selId=null; };
+    const cp=$('#clearPort'); if(cp) cp.onclick=()=>{ W.clearBoss(state,'port');
+      toast('🗝️ 海賊船長を撃破！ 「封城の鍵」を手に入れた ― 封鎖されし城の封印が解けた！');
+      render(); openSheet('sealed'); nodeEls.sealed.classList.add('pulse'); setTimeout(()=>nodeEls.sealed.classList.remove('pulse'),3600); };
+  }
+
+  /* ---- 相棒(キャンバス肖像) ---- */
+  function drawFox(cv){ const c=cv.getContext('2d'),S=cv.width; c.clearRect(0,0,S,S); c.save(); c.translate(S/2,S/2); const u=S/64;
+    c.fillStyle='#f0733a'; c.beginPath(); c.moveTo(14*u,4*u); c.quadraticCurveTo(30*u,-6*u,24*u,14*u); c.quadraticCurveTo(20*u,6*u,14*u,10*u); c.fill();
+    c.fillStyle='#e05a2a'; for(const s of [-1,1]){ c.beginPath(); c.moveTo(s*10*u,-12*u); c.lineTo(s*17*u,-26*u); c.lineTo(s*3*u,-18*u); c.closePath(); c.fill(); }
+    c.fillStyle='#6fae5a'; for(const s of [-1,1]){ c.beginPath(); c.moveTo(s*13*u,-20*u); c.lineTo(s*17*u,-26*u); c.lineTo(s*11*u,-22*u); c.closePath(); c.fill(); }
+    const gg=c.createLinearGradient(0,-16*u,0,16*u); gg.addColorStop(0,'#f88a4a'); gg.addColorStop(1,'#d95f28');
+    c.fillStyle=gg; c.beginPath(); c.arc(0,-2*u,15*u,0,7); c.fill();
+    c.fillStyle='#fdeede'; c.beginPath(); c.ellipse(0,4*u,9*u,7*u,0,0,7); c.fill();
+    c.fillStyle='#2a2028'; c.beginPath(); c.arc(0,2*u,2*u,0,7); c.fill();
+    for(const s of [-1,1]){ c.fillStyle='#fff'; c.beginPath(); c.arc(s*6*u,-4*u,3.4*u,0,7); c.fill(); c.fillStyle='#e0a13a'; c.beginPath(); c.arc(s*6*u,-4*u,2*u,0,7); c.fill(); c.fillStyle='#201018'; c.beginPath(); c.arc(s*6*u,-4*u,1*u,0,7); c.fill(); }
+    c.fillStyle='#d23a3a'; c.beginPath(); c.roundRect(-13*u,11*u,26*u,7*u,3*u); c.fill(); c.restore(); }
+  function drawOtter(cv){ const c=cv.getContext('2d'),S=cv.width; c.clearRect(0,0,S,S); c.save(); c.translate(S/2,S/2); const u=S/64;
+    c.fillStyle='#6fc0e8'; for(const s of [-1,1]){ c.beginPath(); c.moveTo(s*12*u,-10*u); c.lineTo(s*20*u,-16*u); c.lineTo(s*16*u,-6*u); c.closePath(); c.fill(); }
+    const gg=c.createLinearGradient(0,-16*u,0,18*u); gg.addColorStop(0,'#79b8e8'); gg.addColorStop(1,'#4a8fd0');
+    c.fillStyle=gg; c.beginPath(); c.arc(0,-2*u,15*u,0,7); c.fill();
+    c.fillStyle='#eaf4fb'; c.beginPath(); c.ellipse(0,3*u,10*u,8*u,0,0,7); c.fill();
+    c.fillStyle='#33455a'; c.beginPath(); c.ellipse(0,1*u,2.6*u,2*u,0,0,7); c.fill();
+    for(const s of [-1,1]){ c.fillStyle='#fff'; c.beginPath(); c.arc(s*6*u,-5*u,3.4*u,0,7); c.fill(); c.fillStyle='#1a2636'; c.beginPath(); c.arc(s*6*u,-5*u,2*u,0,7); c.fill(); c.fillStyle='#fff'; c.beginPath(); c.arc(s*6*u-0.8*u,-6*u,0.8*u,0,7); c.fill(); }
+    c.fillStyle='#d8a860'; c.beginPath(); c.arc(11*u,14*u,5*u,0,7); c.fill(); c.strokeStyle='#a87c40'; c.lineWidth=1; for(let i=-2;i<=2;i++){ c.beginPath(); c.moveTo(11*u,14*u); c.lineTo(11*u+i*2*u,9*u); c.stroke(); } c.restore(); }
+  function drawOwl(cv){ const c=cv.getContext('2d'),S=cv.width; c.clearRect(0,0,S,S); c.save(); c.translate(S/2,S/2); const u=S/64;
+    c.fillStyle='#4a5a44'; for(const s of [-1,1]){ c.beginPath(); c.moveTo(s*9*u,-13*u); c.lineTo(s*15*u,-24*u); c.lineTo(s*3*u,-15*u); c.closePath(); c.fill(); }
+    const gg=c.createLinearGradient(0,-16*u,0,18*u); gg.addColorStop(0,'#8a9a7a'); gg.addColorStop(1,'#5a6a52');
+    c.fillStyle=gg; c.beginPath(); c.ellipse(0,0,16*u,17*u,0,0,7); c.fill();
+    c.strokeStyle='rgba(150,220,150,0.6)'; c.lineWidth=1.4; c.strokeRect(-11*u,2*u,5*u,5*u); c.strokeRect(7*u,4*u,4*u,4*u);
+    c.fillStyle='#c8cbb8'; c.beginPath(); c.ellipse(0,-2*u,12*u,11*u,0,0,7); c.fill();
+    for(const s of [-1,1]){ c.fillStyle='#fdf6d8'; c.beginPath(); c.arc(s*5*u,-3*u,5*u,0,7); c.fill(); c.fillStyle='#e0b020'; c.beginPath(); c.arc(s*5*u,-3*u,3.4*u,0,7); c.fill(); c.fillStyle='#201810'; c.beginPath(); c.arc(s*5*u,-3*u,1.6*u,0,7); c.fill(); }
+    c.fillStyle='#e0a030'; c.beginPath(); c.moveTo(0,0); c.lineTo(-2.4*u,4*u); c.lineTo(2.4*u,4*u); c.closePath(); c.fill();
+    c.strokeStyle='#8fe08f'; c.lineWidth=1.5; c.beginPath(); c.moveTo(0,-13*u); c.lineTo(-3*u,-10*u); c.lineTo(3*u,-10*u); c.closePath(); c.stroke(); c.restore(); }
+  const drawFns={ fire:drawFox, water:drawOtter, rock:drawOwl };
+  (function buildStarters(){ const wrap=$('#starters');
+    W.ABILITY_ORDER.forEach(key=>{ const a=ABIL[key]; const b=document.createElement('button'); b.className='starter '+key;
+      b.innerHTML=`<canvas width="116" height="116"></canvas><div class="si">
+        <div class="sname">${a.mon.split('「')[1].replace('」','')} <span class="stype" style="background:${a.color}">${key==='fire'?'ほのお':key==='water'?'みず':'もり'}</span></div>
+        <div class="sability">${a.icon} <b>${a.name}</b> ｜ ${a.field}</div></div><div class="toggle"></div>`;
+      b.addEventListener('click',()=>{ state.abilities[key]=!state.abilities[key]; b.classList.toggle('on',state.abilities[key]);
+        const opened=E.filter(e=>e[2]===key).map(e=>R[e[1]].name||R[e[0]].name);
+        toast(state.abilities[key]?`${a.icon} ${a.name} を おぼえた！ ${opened.length?opened.join('・')+' への道がひらいた':''}`:`${a.name} をOFFにした`); render(); });
+      wrap.appendChild(b); drawFns[key](b.querySelector('canvas')); }); })();
+
+  /* ---- 構造チェック ---- */
+  function renderChecks(){ const wrap=$('#checks'); wrap.innerHTML='';
+    W.structureStatus(state).forEach(ch=>{ const d=document.createElement('div'); d.className='chk'+(ch.done?' done':'');
+      d.innerHTML=`<div class="n">${ch.done?'✓':ch.n}</div><div class="ct"><div class="cname">${ch.name}</div><div class="cval">${ch.detail}</div></div>`; wrap.appendChild(d); }); }
+
+  /* ---- トースト ---- */
+  let tt; function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('show'); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove('show'),2800); }
+
+  /* ---- 全体レンダー ---- */
+  function render(){
+    const reach=W.reachable(state);
+    $('#hud-reach').textContent=reach.size;
+    $('#hud-chest').textContent=W.collectableChests(state);
+    for(const id in R){ const el=nodeEls[id], r=R[id], rc=reach.has(id);
+      el.classList.toggle('reach',rc); el.classList.toggle('locked',!rc); el.classList.toggle('cleared',!!state.cleared[id]);
+      const icon=(id==='sealed'&&state.flags.portCleared)?r.openIcon:r.icon; el.querySelector('.pin').textContent=icon;
+      let badge=''; if(!rc) badge='<div class="badge lock">🔒</div>'; else if(r.quest) badge='<div class="badge q">❗</div>'; else if((r.reward||[]).some(x=>x.icon==='💎')) badge='<div class="badge chest">💎</div>';
+      if(badge) el.querySelector('.pin').insertAdjacentHTML('beforeend',badge); }
+    drawEdges(); buildTags(); renderChecks(); if(selId) openSheet(selId);
+  }
+  render();
+})();
+</script>
+</body>
+</html>
