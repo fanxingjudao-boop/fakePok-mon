@@ -26,8 +26,9 @@ jobs:
 
       - name: Build site
         run: |
-          mkdir -p _site
+          mkdir -p _site/world
           cp index.html styles.css audio.js data.js sprites.js battle.js game.js README.md _site/
+          cp world/index.html world/world-data.js _site/world/
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
