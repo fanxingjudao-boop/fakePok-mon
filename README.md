@@ -40,5 +40,14 @@
 | `audio.js` | チップチューン音楽エンジン+楽曲+SE |
 | `data.js` | タイプ相性・わざ・図鑑(28種)・マップ・トレーナー定義 |
 | `sprites.js` | ドット絵レイヤ(キャラ歩行/モンスター手続き生成/タイル) |
+| `monster-art.js` | 28種の32×32骨格別モンスター描画（前面/背面） |
 | `battle.js` | バトルエンジン |
 | `game.js` | オーバーワールド・UI・ストーリー進行・セーブ |
+| `CLAUDE_RENEWAL_BRIEF.md` | 物語・マップ・進行構造を刷新するためのClaude Code依頼書 |
+
+## 開発時の確認
+
+```bash
+node --check monster-art.js
+node tests/monster-art-smoke.cjs
+```
