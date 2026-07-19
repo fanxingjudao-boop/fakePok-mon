@@ -25,6 +25,8 @@
   let evoQueue = new Map();
   let exclaim = null;      // {x,y} !マーク表示
   let npcOffsets = {};     // 歩行アニメ用 npcId → {px,py}
+  let puzzleState = {};    // 試練パズルの一時進捗(マップ移動でリセット)
+  const visitedRegions = () => G.flags;  // 訪問記録は G.flags.visited_<region>
 
   const newGame = () => ({
     v: SAVE_VERSION,
@@ -377,6 +379,9 @@
     if (dir) G.dir = dir;
     player.moving = false; player.prog = 0;
     npcOffsets = {};
+    puzzleState = {};                 // 試練パズルの一時進捗をリセット
+    const region = REGION_OF[id] || (id === 'kodachi' || GD.MAPS[id].indoor ? 'kodachi' : null);
+    if (region) G.flags[`visited_${region}`] = true;  // 地図UI用に訪問を記録
     AU.play(curMap.music || 'town');
     banner(curMap.name);
   }
@@ -673,7 +678,7 @@
       case 'nexusCore': return roleNexusCore(ent);
       case 'quest': return roleQuest(ent);
       case 'questTarget': return roleQuestTarget(ent);
-      case 'trialSwitch': return roleTrialSwitch(ent);
+      case 'trialDevice': return roleTrialDevice(ent);
       case 'ashStar': return roleAshStar(ent);
       default:
         for (const t of (ent.text || ['……'])) await say(t);
@@ -729,23 +734,46 @@
     await say('カエデはかせ「碧樹圏(西)と 潮環圏(東)、どちらから でも よい。\n2つの 環核を つなげば 中央遺構が ひらく。」');
   }
 
-  /* ---- 地域固有の仕掛け(守護獣戦の前提)。しるべを ととのえると 試練解禁 ---- */
-  const TRIAL_HINT = {
-    forest: '守護獣「まず 光の しるべ 2つに ひを ともし、樹路を ひらけ。」',
-    tide:   '守護獣「まず 水位の しるべ 2つを あわせ、経路を つくれ。」',
-    flare:  '守護獣「まず 熱の しるべ 2つを しずめ、冷却路を たもて。」',
-    storm:  '守護獣「まず 送電の しるべ 2つを つなぎ、塔を おこせ。」'
+  /* ---- 地域固有の試練パズル(守護獣戦の前提) ----
+   * order: しるべを 正しい順に 起動(碧樹=光の差す順 / 雷霧=送電順)。誤ると リセット。
+   * level: そうちを 0→1→2 で 目標値に そろえる(潮環=水位 / 火脈=熱量)。
+   */
+  const PUZZLES = {
+    forest: { type: 'order', target: [0, 1, 2], hint: '守護獣「光は 東上→東下→西 の じゅんに さす。\nその 順に しるべを ともせ。」', solved: '樹路に 光が とおった！' },
+    storm:  { type: 'order', target: [2, 0, 1], hint: '守護獣「送電は 南西→北西→北東 の 中継の じゅんに つなぐ。」', solved: '送電が つながり、塔が うなりを あげた！' },
+    tide:   { type: 'level', target: [2, 1], names: ['上流の 水門', '下流の 水門'], hint: '守護獣「上流を 満(2)、下流を 半(1)に あわせよ。」', solved: '水位が そろい、経路が あらわれた！' },
+    flare:  { type: 'level', target: [1, 2], names: ['手前の 炉', '奥の 炉'], hint: '守護獣「手前を 半(1)、奥を 満(2)に 冷ませ。」', solved: '熱が おさまり、冷却路が とおった！' }
   };
-  async function roleTrialSwitch(ent) {
-    const { region, idx, need, text } = ent.ts;
-    const key = `ts_${region}_${idx}`;
-    if (G.flags[key]) { await say('(この しるべは もう 起動している)'); return; }
-    G.flags[key] = true;
-    AU.sfx('confirm');
-    await say(text);
-    let n = 0; for (let i = 0; i < need; i++) if (G.flags[`ts_${region}_${i}`]) n++;
-    if (n >= need) { G.flags[`trial_${region}_ready`] = true; await say('仕掛けが ととのった！\n守護獣の しれんに いどめる。'); }
-    else await say(`(しるべ ${n}/${need})`);
+  const TRIAL_HINT = {
+    forest: PUZZLES.forest.hint, tide: PUZZLES.tide.hint, flare: PUZZLES.flare.hint, storm: PUZZLES.storm.hint
+  };
+  async function roleTrialDevice(ent) {
+    const { region, idx } = ent.td;
+    const pz = PUZZLES[region];
+    if (!pz) { await say('……'); return; }
+    if (G.flags[`trial_${region}_ready`]) { await say('(仕掛けは すでに ととのっている)'); return; }
+    if (!puzzleState[region]) puzzleState[region] = pz.type === 'order' ? { seq: [] } : { lv: {} };
+    const st = puzzleState[region];
+    if (pz.type === 'order') {
+      st.seq.push(idx);
+      AU.sfx('select');
+      const okPrefix = st.seq.every((v, i) => v === pz.target[i]);
+      if (!okPrefix) { await say('しるべの 順番が ちがった…\nはじめから やりなおしだ。'); st.seq = []; return; }
+      if (st.seq.length === pz.target.length) { await solveTrial(region, pz); }
+      else await say(`しるべが ひかった。(${st.seq.length}/${pz.target.length})`);
+    } else {
+      st.lv[idx] = ((st.lv[idx] || 0) + 1) % 3;
+      AU.sfx('select');
+      const label = ['0(空)', '1(半)', '2(満)'][st.lv[idx]];
+      await say(`${pz.names[idx]}を ${label}に あわせた。`);
+      if (pz.target.every((t, i) => (st.lv[i] || 0) === t)) await solveTrial(region, pz);
+    }
+  }
+  async function solveTrial(region, pz) {
+    G.flags[`trial_${region}_ready`] = true;
+    AU.sfx('statUp');
+    await say(pz.solved);
+    await say('仕掛けが ととのった！ 守護獣の しれんに いどめる。');
   }
 
   /* ---- 守護獣の環核試練(仕掛けを ととのえてから戦闘) ---- */
@@ -809,6 +837,8 @@
     if (G.flags.gameCleared) { await say('碧環は あなたの えらんだ かたちで 巡っている。'); return; }
     await say('碧環の 中枢が しずかに 脈うっている。');
     await say('灰星局の 復旧計画、レンの 合理、守護獣たちの 声——\nすべてが あなたの 手に ゆだねられた。');
+    if (G.flags.ashStarRescued) await say('救った 灰星局員の ことばが よぎる——\n「人も 自然も 切りすてない 道も ある」と。');
+    if (G.flags.ashStarCore) await say('灰星局の 強制起動は とめた。\nだが 本部の ゲンドウは まだ 碧環を ねらっている。');
     const rec = window.StoryData.resolveEnding(G);
     const c = await menu([
       { label: '碧環を 完全復旧する', sub: '安定・人の制御' },
@@ -922,6 +952,20 @@
   /* ---- 灰星局(復旧技術者集団): 目的は正当だが手段が生態系を破壊する ---- */
   async function roleAshStar(ent) {
     const a = ent.ashStar;
+    if (a.stage === 'core') {
+      if (G.flags.ashStarCore) { await say('灰星局 主任「……本部の ゲンドウは まだ あきらめまい。」'); return; }
+      G.flags.ashStarSeen = true;
+      await say('灰星局 主任「ここが 碧環の 心臓部。強制起動の じゅんびは ととのった！」');
+      await say('灰星局 主任「災害を とめる ためだ。生態系の 犠牲は やむを えん！」');
+      const r = await BT().startTrainer({ id: 'ashStar_core', name: '灰星局 主任', team: scaleTeam([[23, 15], [19, 15], [9, 16]]), money: 1500, lose: ['……なぜ とめる。災害が くるぞ！'] }, 'cave');
+      if (r === 'lose') { await blackout(); return; }
+      G.flags.ashStarCore = true;
+      window.StoryData.recordChoice(G, 'nature', 2);
+      await say('灰星局 主任「強制起動を とめた……。だが 本部の ゲンドウは\nもっと つよい 手を うってくるだろう。」');
+      await say('灰星局 主任「あんたの えらぶ 道が、世界の こたえに なる。」');
+      AU.play(curMap.music || 'cave');
+      return;
+    }
     if (a.stage === 'confront') {
       if (G.flags.ashStarForest) { await say('灰星局員「……もう むりな 強制起動は やめた。」'); return; }
       G.flags.ashStarSeen = true;
@@ -1271,20 +1315,21 @@
     cutscene = true;
     AU.sfx('confirm');
     while (true) {
-      const i = await menu(['ずかん', 'モンスター', 'バッグ', 'たびのきろく', 'レポート', 'トレーナーカード', 'とじる'], { cancelable: true, title: 'メニュー' });
-      if (i < 0 || i === 6) break;
+      const i = await menu(['ずかん', 'モンスター', 'バッグ', 'たびのきろく', 'マップ', 'レポート', 'トレーナーカード', 'とじる'], { cancelable: true, title: 'メニュー' });
+      if (i < 0 || i === 7) break;
       if (i === 0) await dexScreen();
       else if (i === 1) await partyScreen();
       else if (i === 2) await bagPick({ inBattle: false });
       else if (i === 3) await journeyLog();
-      else if (i === 4) {
+      else if (i === 4) await mapScreen();
+      else if (i === 5) {
         if (await confirm('レポートに ぼうけんを かきのこしますか？')) {
           saveGame();
           AU.sfx('save');
           await say('レポートに しっかり かきのこした！');
         }
       }
-      else if (i === 5) await trainerCard();
+      else if (i === 6) await trainerCard();
     }
     cutscene = false;
   }
@@ -1317,6 +1362,39 @@
     await say(`◆ 環核: ${cores.length ? cores.map((c) => coreNames[c]).join('・') : 'まだ ない'} (${cores.length}/4)`);
     const ash = G.flags.ashStarRescued ? '救助あり' : G.flags.ashStarForest ? '暴走を阻止' : G.flags.ashStarSeen ? '接触した' : '未接触';
     await say(`◆ 灰星局: ${ash}\n◆ サブクエスト達成: ${done.length}/${Object.keys(QUESTS).length}`);
+  }
+
+  /* ---- 地図ビュー: 地域グラフ・現在地・解放/未解放を表示 ---- */
+  async function mapScreen() {
+    const SD = window.StoryData;
+    const cine = $('cine');
+    cine.classList.remove('hidden');
+    cine.innerHTML = '<div class="hall-title" style="font-size:17px">セイリュウ地方 マップ</div>' +
+      '<canvas id="map-cv" width="360" height="300" style="image-rendering:auto"></canvas>' +
+      '<div class="hall-sub" id="map-cap"></div>' +
+      '<div class="hall-sub" style="font-size:11px;color:#9fb0d8">🟥現在地 🟦踏破 🟩解放 ⬛未解放</div>';
+    const cv = document.getElementById('map-cv'), c = cv.getContext('2d');
+    const POS = { kodachi: [180, 252], forest: [66, 190], tide: [294, 190], ruins: [180, 150], flare: [66, 78], storm: [294, 78], nexus: [180, 28] };
+    const cur = REGION_OF[G.mapId] || 'kodachi';
+    c.strokeStyle = 'rgba(200,210,240,.35)'; c.lineWidth = 3;
+    for (const [a, bn] of SD.REGION_EDGES) if (POS[a] && POS[bn]) { c.beginPath(); c.moveTo(POS[a][0], POS[a][1]); c.lineTo(POS[bn][0], POS[bn][1]); c.stroke(); }
+    c.textAlign = 'center';
+    for (const id in POS) {
+      const [x, y] = POS[id], R = SD.REGIONS[id];
+      const unlocked = SD.regionUnlocked(id, { flags: G.flags, party: G.party }).ok;
+      const visited = !!G.flags[`visited_${id}`];
+      c.fillStyle = id === cur ? '#f0603a' : visited ? '#4a9fe8' : unlocked ? '#6fae5a' : '#3a4560';
+      c.beginPath(); c.arc(x, y, 15, 0, 7); c.fill();
+      c.strokeStyle = '#0e1526'; c.lineWidth = 2; c.stroke();
+      if (!unlocked) { // 未解放は 錠前
+        c.fillStyle = '#c9d3ee'; c.fillRect(x - 4, y - 1, 8, 7);
+        c.strokeStyle = '#c9d3ee'; c.lineWidth = 1.5; c.beginPath(); c.arc(x, y - 1, 3, Math.PI, 0); c.stroke();
+      }
+      c.fillStyle = '#eaf0ff'; c.font = 'bold 11px sans-serif'; c.fillText(R.name, x, y + 29);
+    }
+    document.getElementById('map-cap').textContent = `現在地: ${SD.REGIONS[cur].name}  /  環核 ${GD.coreCount(G.flags)}/4`;
+    await new Promise((res) => { uiDepth++; Input.push((k) => { if (k === 'a' || k === 'b') { Input.pop(); uiDepth--; res(); } }); });
+    cine.classList.add('hidden'); cine.innerHTML = '';
   }
 
   async function dexScreen() {

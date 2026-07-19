@@ -189,8 +189,9 @@
     warps: [{ x: 4, y: 6, to: 'forest', tx: 3, ty: 12 }],
     edgeExits: {}, signs: {}, obstacles: [],
     npcs: [
-      { id: 'forest_sw0', kind: 'npc', skin: 'man', x: 2, y: 3, dir: 'down', role: 'trialSwitch', ts: { region: 'forest', idx: 0, need: 2, text: 'ひをともす しるべに 火が ともった。' } },
-      { id: 'forest_sw1', kind: 'npc', skin: 'man', x: 6, y: 3, dir: 'down', role: 'trialSwitch', ts: { region: 'forest', idx: 1, need: 2, text: 'ひをともす しるべに 火が ともった。' } },
+      { id: 'forest_d0', kind: 'npc', skin: 'man', x: 6, y: 3, dir: 'down', role: 'trialDevice', td: { region: 'forest', idx: 0 } },
+      { id: 'forest_d1', kind: 'npc', skin: 'man', x: 6, y: 5, dir: 'down', role: 'trialDevice', td: { region: 'forest', idx: 1 } },
+      { id: 'forest_d2', kind: 'npc', skin: 'man', x: 2, y: 3, dir: 'down', role: 'trialDevice', td: { region: 'forest', idx: 2 } },
       { id: 'fo_guardian', kind: 'npc', skin: 'leader', x: 4, y: 2, dir: 'down', role: 'guardian',
       guardian: { core: 'coreForest', region: 'forest', name: '森の守護獣モリドラード', species: 3, lv: 12,
         pre: ['森の守護獣が たちはだかる！\n巡環士よ、その しんらいを 見せよ。'], win: ['守護獣は みとめた。碧樹の かんかくが よみがえる！'] } }],
@@ -295,8 +296,8 @@
     warps: [{ x: 4, y: 6, to: 'tide', tx: 15, ty: 7 }],
     edgeExits: {}, signs: {}, obstacles: [],
     npcs: [
-      { id: 'tide_sw0', kind: 'npc', skin: 'man', x: 2, y: 3, dir: 'down', role: 'trialSwitch', ts: { region: 'tide', idx: 0, need: 2, text: '水位の しるべを あわせた。' } },
-      { id: 'tide_sw1', kind: 'npc', skin: 'man', x: 6, y: 3, dir: 'down', role: 'trialSwitch', ts: { region: 'tide', idx: 1, need: 2, text: '水位の しるべを あわせた。' } },
+      { id: 'tide_d0', kind: 'npc', skin: 'man', x: 2, y: 3, dir: 'down', role: 'trialDevice', td: { region: 'tide', idx: 0 } },
+      { id: 'tide_d1', kind: 'npc', skin: 'man', x: 6, y: 3, dir: 'down', role: 'trialDevice', td: { region: 'tide', idx: 1 } },
       { id: 'ti_guardian', kind: 'npc', skin: 'leader', x: 4, y: 2, dir: 'down', role: 'guardian',
       guardian: { core: 'coreTide', region: 'tide', name: '潮の守護獣カイリュウガ', species: 9, lv: 13,
         pre: ['水面が もりあがり、守護獣が あらわれた！'], win: ['潮の かんかくが つながった！'] } }],
@@ -328,7 +329,10 @@
         req: { minCores: 4, allFlags: ['renResolved'], text: 'とびら「4つの かんかくと、レンとの けりを つけた者のみ\n碧環中枢へ」' } }
     },
     signs: { '5,5': '中央遺構\n西は 火脈圏、東は 雷霧圏。奥は 碧環中枢。' }, obstacles: [],
-    npcs: [{ id: 'ren_ruins', kind: 'npc', skin: 'rival', x: 7, y: 4, dir: 'down', role: 'ren', renStage: 'ruins' }], trainers: []
+    npcs: [
+      { id: 'ren_ruins', kind: 'npc', skin: 'rival', x: 7, y: 4, dir: 'down', role: 'ren', renStage: 'ruins' },
+      { id: 'ruins_ash', kind: 'npc', skin: 'boss', x: 4, y: 5, dir: 'down', role: 'ashStar', ashStar: { stage: 'core' } }
+    ], trainers: []
   };
 
   /* ===== 火脈圏 (16x11) ===== */
@@ -430,8 +434,8 @@
     warps: [{ x: 4, y: 6, to: 'flare', tx: 15, ty: 4 }],
     edgeExits: {}, signs: {}, obstacles: [],
     npcs: [
-      { id: 'flare_sw0', kind: 'npc', skin: 'man', x: 2, y: 3, dir: 'down', role: 'trialSwitch', ts: { region: 'flare', idx: 0, need: 2, text: '熱の しるべを しずめた。' } },
-      { id: 'flare_sw1', kind: 'npc', skin: 'man', x: 6, y: 3, dir: 'down', role: 'trialSwitch', ts: { region: 'flare', idx: 1, need: 2, text: '熱の しるべを しずめた。' } },
+      { id: 'flare_d0', kind: 'npc', skin: 'man', x: 2, y: 3, dir: 'down', role: 'trialDevice', td: { region: 'flare', idx: 0 } },
+      { id: 'flare_d1', kind: 'npc', skin: 'man', x: 6, y: 3, dir: 'down', role: 'trialDevice', td: { region: 'flare', idx: 1 } },
       { id: 'fl_guardian', kind: 'npc', skin: 'leader', x: 4, y: 2, dir: 'down', role: 'guardian',
       guardian: { core: 'coreFlare', region: 'flare', name: '炎の守護獣ゴウカオン', species: 6, lv: 20,
         pre: ['炉の おくから 守護獣が ほえた！'], win: ['火脈の かんかくが よみがえった！'] } }],
@@ -535,8 +539,9 @@
     warps: [{ x: 4, y: 6, to: 'storm', tx: 15, ty: 3 }],
     edgeExits: {}, signs: {}, obstacles: [],
     npcs: [
-      { id: 'storm_sw0', kind: 'npc', skin: 'man', x: 2, y: 3, dir: 'down', role: 'trialSwitch', ts: { region: 'storm', idx: 0, need: 2, text: '送電の しるべを つないだ。' } },
-      { id: 'storm_sw1', kind: 'npc', skin: 'man', x: 6, y: 3, dir: 'down', role: 'trialSwitch', ts: { region: 'storm', idx: 1, need: 2, text: '送電の しるべを つないだ。' } },
+      { id: 'storm_d0', kind: 'npc', skin: 'man', x: 2, y: 3, dir: 'down', role: 'trialDevice', td: { region: 'storm', idx: 0 } },
+      { id: 'storm_d1', kind: 'npc', skin: 'man', x: 6, y: 3, dir: 'down', role: 'trialDevice', td: { region: 'storm', idx: 1 } },
+      { id: 'storm_d2', kind: 'npc', skin: 'man', x: 2, y: 5, dir: 'down', role: 'trialDevice', td: { region: 'storm', idx: 2 } },
       { id: 'st_guardian', kind: 'npc', skin: 'leader', x: 4, y: 2, dir: 'down', role: 'guardian',
       guardian: { core: 'coreStorm', region: 'storm', name: '雷の守護獣ライメイチョウ', species: 28, lv: 22,
         pre: ['いかずちと ともに 守護獣が 舞いおりた！'], win: ['雷霧の かんかくが つながった！ これで 4つ すべて…！'] } }],

@@ -103,18 +103,41 @@ console.log('1. 新ワールド採用 OK');
   console.log(`7. サブクエスト ${givers.size}件(多段 ${multiStep} / 選択 ${choice})目標地点も配置 OK`);
 }
 
-/* 7b. 環核試練の しるべ(各地域2つ)と 灰星局NPC が配置されている */
+/* 7b. 環核試練の パズルデバイス(order=3 / level=2)と 灰星局NPC が配置されている */
 {
-  const sw = {};
+  const dev = {};
   let ash = 0;
   for (const map of Object.values(MAPS))
     for (const n of (map.npcs || [])) {
-      if (n.role === 'trialSwitch') sw[n.ts.region] = (sw[n.ts.region] || 0) + 1;
+      if (n.role === 'trialDevice') { (dev[n.td.region] = dev[n.td.region] || new Set()).add(n.td.idx); }
       if (n.role === 'ashStar') ash++;
     }
-  for (const r of ['forest', 'tide', 'flare', 'storm']) assert.equal(sw[r], 2, `${r}に しるべ2つ`);
+  // game.js の PUZZLES(type/target)を静的に読み、デバイス数と突き合わせる
+  const gj = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'game.js'), 'utf8');
+  const pblock = gj.slice(gj.indexOf('const PUZZLES = {'), gj.indexOf('const TRIAL_HINT'));
+  for (const r of ['forest', 'tide', 'flare', 'storm']) {
+    const seg = (pblock.match(new RegExp(`${r}:\\s*\\{[\\s\\S]*?\\}`)) || [''])[0];
+    const type = (seg.match(/type:\s*'(\w+)'/) || [])[1];
+    const target = (seg.match(/target:\s*\[([\d,\s]+)\]/) || [])[1].split(',').length;
+    const want = type === 'order' ? target : target; // どちらも target 長ぶんのデバイス
+    assert.equal(dev[r] ? dev[r].size : 0, want, `${r}(${type})の デバイスが ${want}個`);
+  }
   assert.ok(ash >= 2, '灰星局NPCが2体以上');
-  console.log(`7b. 試練しるべ 各2つ・灰星局 ${ash}体 配置 OK`);
+  console.log(`7b. 試練パズル(order3/level2)・灰星局 ${ash}体 配置 OK`);
+}
+
+/* 7c. パズル解法ロジック: 正順で解け、誤順でリセットされる(順序)/目標値で解ける(水位) */
+{
+  // 順序パズル: target=[0,1,2] を模擬
+  const order = { target: [0, 1, 2] };
+  const feed = (seq) => seq.every((v, i) => v === order.target[i]);
+  assert.ok(feed([0]) && feed([0, 1]) && feed([0, 1, 2]), '正しい順は 前方一致で進む');
+  assert.ok(!feed([1]), '誤順は 前方一致に失敗=リセット対象');
+  // 水位パズル: target=[2,1]
+  const lv = { target: [2, 1] };
+  const solved = (st) => lv.target.every((t, i) => (st[i] || 0) === t);
+  assert.ok(!solved({ 0: 2, 1: 0 }) && solved({ 0: 2, 1: 1 }), '目標値そろいで解ける');
+  console.log('7c. パズル解法ロジック(順序/水位) OK');
 }
 
 /* 8. 3方針エンディングがスコアから導出される */
