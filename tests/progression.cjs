@@ -115,15 +115,21 @@ console.log('1. 新ワールド採用 OK');
   // game.js の PUZZLES(type/target)を静的に読み、デバイス数と突き合わせる
   const gj = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'game.js'), 'utf8');
   const pblock = gj.slice(gj.indexOf('const PUZZLES = {'), gj.indexOf('const TRIAL_HINT'));
+  const types = {};
   for (const r of ['forest', 'tide', 'flare', 'storm']) {
     const seg = (pblock.match(new RegExp(`${r}:\\s*\\{[\\s\\S]*?\\}`)) || [''])[0];
     const type = (seg.match(/type:\s*'(\w+)'/) || [])[1];
-    const target = (seg.match(/target:\s*\[([\d,\s]+)\]/) || [])[1].split(',').length;
-    const want = type === 'order' ? target : target; // どちらも target 長ぶんのデバイス
+    types[type] = (types[type] || 0) + 1;
+    let want;
+    if (type === 'toggle') want = Number((seg.match(/lights:\s*(\d+)/) || [])[1]); // 炉の数=デバイス数
+    else want = (seg.match(/target:\s*\[([\d,\s]+)\]/) || [, ''])[1].split(',').length; // order/level=target長
+    assert.ok(want > 0, `${r}(${type}) の 目標サイズが読めない`);
     assert.equal(dev[r] ? dev[r].size : 0, want, `${r}(${type})の デバイスが ${want}個`);
   }
+  // 3型式(order/level/toggle)が すべて使われている=パズルの多様化
+  assert.ok(types.order && types.level && types.toggle, `3種のパズル型式が使われる(実際 ${JSON.stringify(types)})`);
   assert.ok(ash >= 2, '灰星局NPCが2体以上');
-  console.log(`7b. 試練パズル(order3/level2)・灰星局 ${ash}体 配置 OK`);
+  console.log(`7b. 試練パズル ${JSON.stringify(types)}・灰星局 ${ash}体 配置 OK`);
 }
 
 /* 7c. パズル解法ロジック: 正順で解け、誤順でリセットされる(順序)/目標値で解ける(水位) */
@@ -137,7 +143,16 @@ console.log('1. 新ワールド採用 OK');
   const lv = { target: [2, 1] };
   const solved = (st) => lv.target.every((t, i) => (st[i] || 0) === t);
   assert.ok(!solved({ 0: 2, 1: 0 }) && solved({ 0: 2, 1: 1 }), '目標値そろいで解ける');
-  console.log('7c. パズル解法ロジック(順序/水位) OK');
+  // トグルパズル(ライツアウト): wires=[[0,1],[1,2],[2]] を 全点灯に できる解が存在する
+  const wires = [[0, 1], [1, 2], [2]], lights = 3;
+  const run = (presses) => {
+    const on = {};
+    for (const p of presses) for (const L of wires[p]) on[L] = !on[L];
+    return Array.from({ length: lights }, (_, i) => i).every((i) => on[i]);
+  };
+  assert.ok(!run([0]) && run([0, 2]), 'トグル: 正しい炉の組みで全点灯=解ける');
+  assert.ok(!run([0, 1, 2]), 'トグル: まちがった組みでは 全点灯しない');
+  console.log('7c. パズル解法ロジック(順序/水位/トグル) OK');
 }
 
 /* 7d. 反応会話(variants): 地域クリアで台詞が変わるNPCが各地域にそろい、
@@ -171,6 +186,26 @@ console.log('1. 新ワールド採用 OK');
   const after = pick(fo, St({ coreForest: true }, []));
   assert.notDeepEqual(before, after, 'coreForestで森NPCの台詞が変化');
   console.log(`7d. 反応会話 ${reactive.length}体・4環核反応・選択規則 OK`);
+}
+
+/* 7e. 灰星局アークの締め: 本部長ゲンドウ(final)が中枢に条件付きで配置され、
+ *     game.js に final ステージ処理と 中枢ゲートが実装されている */
+{
+  let gendou = null;
+  for (const map of Object.values(MAPS))
+    for (const n of (map.npcs || []))
+      if (n.role === 'ashStar' && n.ashStar && n.ashStar.stage === 'final') gendou = { map, n };
+  assert.ok(gendou, '本部長ゲンドウ(ashStar stage:final)が配置されている');
+  assert.equal(gendou.map.id, 'nexus', 'ゲンドウは 碧環中枢に いる');
+  // アーク未着手では出ず(showIf)、決着後は消える(hideIf)
+  assert.equal(gendou.n.showIf, 'ashStarCore', 'ゲンドウは ashStarCore まで 出現しない');
+  assert.equal(gendou.n.hideIf, 'ashStarFinal', 'ゲンドウは 決着後 消える');
+  const gj = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'game.js'), 'utf8');
+  assert.ok(/a\.stage === 'final'/.test(gj), 'final ステージ処理が game.js にある');
+  assert.ok(/ashStarFinal\s*=\s*true/.test(gj), '決着で ashStarFinal を立てる');
+  // 中枢の最終決定は、アーク着手済みなら ゲンドウ撃破が前提
+  assert.ok(/ashStarCore\s*&&\s*!G\.flags\.ashStarFinal/.test(gj), '中枢ゲート: アーク着手時は 決着前だと 選べない');
+  console.log('7e. 灰星局アーク締め(ゲンドウ final・中枢ゲート) OK');
 }
 
 /* 8. 3方針エンディングがスコアから導出される */

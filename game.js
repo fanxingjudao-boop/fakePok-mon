@@ -366,6 +366,7 @@
 
   function npcVisible(n) {
     if (n.hideIf && G.flags[n.hideIf]) return false;
+    if (n.showIf && !G.flags[n.showIf]) return false;  // フラグが立つまで出現しない
     if (n.blockIf && n.blockIf.startsWith('!') && G.flags[n.blockIf.slice(1)]) return false;
     if (n.kind === 'trainer' && G.flags[`t_${n.id}`] && n.hideIf) return false;
     return true;
@@ -745,14 +746,17 @@
   }
 
   /* ---- 地域固有の試練パズル(守護獣戦の前提) ----
-   * order: しるべを 正しい順に 起動(碧樹=光の差す順 / 雷霧=送電順)。誤ると リセット。
-   * level: そうちを 0→1→2 で 目標値に そろえる(潮環=水位 / 火脈=熱量)。
+   * order:  しるべを 正しい順に 起動(碧樹=光の差す順 / 雷霧=送電順)。誤ると リセット。
+   * level:  そうちを 0→1→2 で 目標値に そろえる(潮環=水位)。
+   * toggle: 炉を 押すと 火道で つながる 炉も 反転(火脈=ライツアウト)。全点灯で 解錠。
+   *         wires[idx] = その 炉を 押した とき 反転する 炉の 一覧。
    */
   const PUZZLES = {
     forest: { type: 'order', target: [0, 1, 2], hint: '守護獣「光は 東上→東下→西 の じゅんに さす。\nその 順に しるべを ともせ。」', solved: '樹路に 光が とおった！' },
     storm:  { type: 'order', target: [2, 0, 1], hint: '守護獣「送電は 南西→北西→北東 の 中継の じゅんに つなぐ。」', solved: '送電が つながり、塔が うなりを あげた！' },
     tide:   { type: 'level', target: [2, 1], names: ['上流の 水門', '下流の 水門'], hint: '守護獣「上流を 満(2)、下流を 半(1)に あわせよ。」', solved: '水位が そろい、経路が あらわれた！' },
-    flare:  { type: 'level', target: [1, 2], names: ['手前の 炉', '奥の 炉'], hint: '守護獣「手前を 半(1)、奥を 満(2)に 冷ませ。」', solved: '熱が おさまり、冷却路が とおった！' }
+    flare:  { type: 'toggle', lights: 3, wires: [[0, 1], [1, 2], [2]], names: ['左の 炉', '中の 炉', '右の 炉'],
+      hint: '守護獣「三つの 炉を すべて 灯せ。\n炉は 火道で となりと つながって いる。」', solved: '三つの 炉に 火が とおり、炉殿の 扉が ひらいた！' }
   };
   const TRIAL_HINT = {
     forest: PUZZLES.forest.hint, tide: PUZZLES.tide.hint, flare: PUZZLES.flare.hint, storm: PUZZLES.storm.hint
@@ -762,8 +766,17 @@
     const pz = PUZZLES[region];
     if (!pz) { await say('……'); return; }
     if (G.flags[`trial_${region}_ready`]) { await say('(仕掛けは すでに ととのっている)'); return; }
-    if (!puzzleState[region]) puzzleState[region] = pz.type === 'order' ? { seq: [] } : { lv: {} };
+    if (!puzzleState[region]) puzzleState[region] = pz.type === 'order' ? { seq: [] } : pz.type === 'toggle' ? { on: {} } : { lv: {} };
     const st = puzzleState[region];
+    if (pz.type === 'toggle') {
+      for (const L of pz.wires[idx]) st.on[L] = !st.on[L];
+      AU.sfx('select');
+      const ids = Array.from({ length: pz.lights }, (_, i) => i);
+      const lit = ids.filter((i) => st.on[i]).length;
+      await say(`${pz.names[idx]}を うごかした。(点灯 ${lit}/${pz.lights})`);
+      if (ids.every((i) => st.on[i])) await solveTrial(region, pz);
+      return;
+    }
     if (pz.type === 'order') {
       st.seq.push(idx);
       AU.sfx('select');
@@ -845,10 +858,16 @@
   /* ---- 碧環中枢: 分岐エンディング ---- */
   async function roleNexusCore() {
     if (G.flags.gameCleared) { await say('碧環は あなたの えらんだ かたちで 巡っている。'); return; }
+    // 灰星局アークを進めた場合、本部長ゲンドウを退けるまで最終決定はできない
+    if (G.flags.ashStarCore && !G.flags.ashStarFinal) {
+      await say('中枢装置に 灰星局 本部長 ゲンドウが とりついている！');
+      await say('彼を とめなければ、碧環の 決定は できない。');
+      return;
+    }
     await say('碧環の 中枢が しずかに 脈うっている。');
     await say('灰星局の 復旧計画、レンの 合理、守護獣たちの 声——\nすべてが あなたの 手に ゆだねられた。');
-    if (G.flags.ashStarRescued) await say('救った 灰星局員の ことばが よぎる——\n「人も 自然も 切りすてない 道も ある」と。');
-    if (G.flags.ashStarCore) await say('灰星局の 強制起動は とめた。\nだが 本部の ゲンドウは まだ 碧環を ねらっている。');
+    if (G.flags.ashStarFinal) await say('退けた ゲンドウの ことばが のこる——\n「人も 自然も 見すてぬ 道を」と。');
+    else if (G.flags.ashStarRescued) await say('救った 灰星局員の ことばが よぎる——\n「人も 自然も 切りすてない 道も ある」と。');
     const rec = window.StoryData.resolveEnding(G);
     const c = await menu([
       { label: '碧環を 完全復旧する', sub: '安定・人の制御' },
@@ -974,6 +993,25 @@
       await say('灰星局 主任「強制起動を とめた……。だが 本部の ゲンドウは\nもっと つよい 手を うってくるだろう。」');
       await say('灰星局 主任「あんたの えらぶ 道が、世界の こたえに なる。」');
       AU.play(curMap.music || 'cave');
+      return;
+    }
+    if (a.stage === 'final') {
+      if (G.flags.ashStarFinal) { await say('灰星局 本部長 ゲンドウ「……好きに せよ。碧環の さきは、おまえの 手に ある。」'); return; }
+      await say('灰星局 本部長 ゲンドウ「よく ここまで きた、巡環士。」');
+      await say('ゲンドウ「私は 碧環を 完全復旧させ、二度と 災害の おきぬ 世界を つくる。」');
+      await say('ゲンドウ「生態系の いくらかを 犠牲に してもだ。\nそれが 人の 責任という ものだ。」');
+      await say('ゲンドウ「おまえの えらぶ 道が 甘いか どうか——\nこの 一戦で 見せてもらおう！」');
+      const r = await BT().startTrainer({
+        id: 'ashStar_final', name: '本部長 ゲンドウ',
+        team: scaleTeam([[24, 32], [23, 33], [27, 33], [19, 34]]),
+        money: 5000, champion: true, lose: ['ぐ……。私の 復旧計画は、まちがって いたのか……。'] }, 'gym');
+      if (r === 'lose') { await blackout(); return; }
+      G.flags.ashStarFinal = true;
+      window.StoryData.recordChoice(G, 'share', 2); // 力で通さず対話に導いた=分散寄り
+      await say('ゲンドウ「……敗れたか。だが おまえは 私を 殺しも しばりも しなかった。」');
+      await say('ゲンドウ「災害を おそれる あまり、私は 手段を えらばなかった……。」');
+      await say('ゲンドウ「碧環の さいごの 決定、おまえに ゆだねよう。\n——どうか、人も 自然も 見すてぬ 道を。」');
+      AU.play(curMap.music || 'ending');
       return;
     }
     if (a.stage === 'confront') {
@@ -1252,7 +1290,10 @@
   /* ================= しんか ================= */
   window.Game = {
     state: () => G,
+    debugNewGame: () => { G = newGame(); return G; },
     debugWarp: (id, x, y, dir) => { if (G && GD.MAPS[id]) loadMap(id, x, y, dir || 'down'); },
+    debugEntity: async (id) => { const e = (curMap && [...(curMap.npcs || []), ...(curMap.trainers || [])].find((n) => n.id === id)); if (e) await handleEntity(e); return !!e; },
+    debugVisible: (id) => { const e = curMap && [...(curMap.npcs || []), ...(curMap.trainers || [])].find((n) => n.id === id); return e ? npcVisible(e) : null; },
     queueEvolution: (mon) => evoQueue.set(mon.uid, mon),
     clearEvolutions: () => evoQueue.clear(),
     runEvolutions: async () => {

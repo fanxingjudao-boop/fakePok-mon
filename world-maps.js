@@ -449,7 +449,8 @@
     edgeExits: {}, signs: {}, obstacles: [],
     npcs: [
       { id: 'flare_d0', kind: 'npc', skin: 'man', x: 2, y: 3, dir: 'down', role: 'trialDevice', td: { region: 'flare', idx: 0 } },
-      { id: 'flare_d1', kind: 'npc', skin: 'man', x: 6, y: 3, dir: 'down', role: 'trialDevice', td: { region: 'flare', idx: 1 } },
+      { id: 'flare_d1', kind: 'npc', skin: 'man', x: 4, y: 4, dir: 'down', role: 'trialDevice', td: { region: 'flare', idx: 1 } },
+      { id: 'flare_d2', kind: 'npc', skin: 'man', x: 6, y: 3, dir: 'down', role: 'trialDevice', td: { region: 'flare', idx: 2 } },
       { id: 'fl_guardian', kind: 'npc', skin: 'leader', x: 4, y: 2, dir: 'down', role: 'guardian',
       guardian: { core: 'coreFlare', region: 'flare', name: '炎の守護獣ゴウカオン', species: 6, lv: 20,
         pre: ['炉の おくから 守護獣が ほえた！'], win: ['火脈の かんかくが よみがえった！'] } }],
@@ -583,6 +584,9 @@
     signs: { '6,3': '碧環中枢\n世界の ゆくえは、ここで 決まる。' }, obstacles: [],
     npcs: [
       { id: 'ren_nexus', kind: 'npc', skin: 'rival', x: 5, y: 3, dir: 'down', role: 'ren', renStage: 'nexus' },
+      // 灰星局アークを進めた場合のみ出現する本部長。倒すと消える。
+      { id: 'gendou', kind: 'npc', skin: 'boss', x: 7, y: 6, dir: 'down', role: 'ashStar',
+        ashStar: { stage: 'final' }, showIf: 'ashStarCore', hideIf: 'ashStarFinal' },
       { id: 'nexus_core', kind: 'npc', skin: 'prof', x: 9, y: 3, dir: 'down', role: 'nexusCore' }
     ], trainers: []
   };
