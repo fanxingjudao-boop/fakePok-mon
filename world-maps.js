@@ -65,7 +65,12 @@
     obstacles: [],
     npcs: [
       { id: 'ko_elder', kind: 'npc', skin: 'man', x: 4, y: 8, dir: 'right',
-        text: ['巡環士は モンスターを したがえるのではない。', 'しんらいを むすび、よわった 碧環の かんかくを つなぎなおすのじゃ。'] },
+        variants: [
+          { req: { minCores: 4 }, text: ['四つの かんかくが つながった…… 空気が 澄んできたのを かんじる。', 'あとは 中枢で、おぬしが どんな 碧環を えらぶかじゃ。'] },
+          { req: { minCores: 2 }, text: ['ふたつの 環核が もどり、風が おだやかに なった。', '西も 東も 守護獣の 声が とどく。北の 遺構も ひらいたはずじゃ。'] },
+          { req: { minCores: 1 }, text: ['ひとつ かんかくが つながっただけで、枯れ木に 芽が さした。', 'この ちょうしで 各地の 守護獣と しんらいを むすぶのじゃ。'] },
+          { text: ['巡環士は モンスターを したがえるのではない。', 'しんらいを むすび、よわった 碧環の かんかくを つなぎなおすのじゃ。'] }
+        ] },
       { id: 'ko_kid', kind: 'npc', skin: 'boy2', x: 10, y: 11, dir: 'left', role: 'quest', quest: 'sqTrail' }
     ], trainers: []
   };
@@ -136,7 +141,10 @@
       leadsTo: { to: 'forest_marsh', tx: 4, ty: 5 } }],
     npcs: [
       { id: 'fo_walker', kind: 'npc', skin: 'girl', x: 6, y: 7, dir: 'down',
-        text: ['森殿の 守護獣は、しんらいを 見せた者にだけ 樹路を あける。', '倒木は ほのおの ちからで やけるらしいよ。'] },
+        variants: [
+          { req: { allFlags: ['coreForest'] }, text: ['碧樹の 環核が もどってから、枯れかけた 苔が 緑を とりもどしたの。', '守護獣が 樹路を ひらいてくれた。 あなたの おかげよ。'] },
+          { text: ['森殿の 守護獣は、しんらいを 見せた者にだけ 樹路を あける。', '倒木は ほのおの ちからで やけるらしいよ。'] }
+        ] },
       { id: 'fo_quest', kind: 'npc', skin: 'man', x: 10, y: 5, dir: 'left', role: 'quest', quest: 'sqCollect' },
       { id: 'fo_stray', kind: 'npc', skin: 'boy2', x: 5, y: 5, dir: 'down', role: 'questTarget',
         qt: { quest: 'sqTrail', idx: 0, text: '迷い獣を そっと なだめ、むれへ かえした。', lockText: 'ちいさな 迷い獣が おびえている。', doneText: '迷い獣は むれで げんきに している。' } }
@@ -230,7 +238,10 @@
       leadsTo: { to: 'tide_obs', tx: 4, ty: 3 } }],
     npcs: [
       { id: 'ti_fisher', kind: 'npc', skin: 'man', x: 8, y: 9, dir: 'down',
-        text: ['潮の みちひきで とおれる みちが かわる。', 'みずの なかまが いれば 水門を あやつれるぞ。'] },
+        variants: [
+          { req: { allFlags: ['coreTide'] }, text: ['潮環の 環核が もどってから、逆流していた 河が もとの ながれに かえった。', '守護獣が みとめた あかしだな。ありがとうよ。'] },
+          { text: ['潮の みちひきで とおれる みちが かわる。', 'みずの なかまが いれば 水門を あやつれるぞ。'] }
+        ] },
       { id: 'ti_quest', kind: 'npc', skin: 'girl', x: 11, y: 5, dir: 'down', role: 'quest', quest: 'sqChoice' },
       { id: 'ti_ash', kind: 'npc', skin: 'grunt', x: 9, y: 10, dir: 'down', role: 'ashStar', ashStar: { stage: 'confront' } }
     ],
@@ -365,7 +376,10 @@
       leadsTo: { to: 'flare_cool', tx: 4, ty: 5 } }],
     npcs: [
       { id: 'fl_smith', kind: 'npc', skin: 'man', x: 9, y: 5, dir: 'down',
-        text: ['火脈の 熱を おさえながら 冷却路を たもつ。それが 試練だ。', '岩は いわで くだくも、みずで 冷ますも よし。'] },
+        variants: [
+          { req: { allFlags: ['coreFlare'] }, text: ['火脈の 環核が もどり、噴きあがっていた 火山灰が やんだ。', '守護獣が しんらいを かえしてくれた。この 熱も いまは おだやかだ。'] },
+          { text: ['火脈の 熱を おさえながら 冷却路を たもつ。それが 試練だ。', '岩は いわで くだくも、みずで 冷ますも よし。'] }
+        ] },
       { id: 'fl_quest', kind: 'npc', skin: 'girl', x: 11, y: 8, dir: 'down', role: 'quest', quest: 'sqRescue' },
       { id: 'fl_relay0', kind: 'npc', skin: 'man', x: 4, y: 5, dir: 'down', role: 'questTarget',
         qt: { quest: 'sqMarket', idx: 0, text: 'ひとつめの 中継地を みまわり、安全を 確認した。', lockText: '段丘の 中継地だ。' } },
@@ -471,7 +485,10 @@
       leadsTo: { to: 'storm_tower', tx: 4, ty: 5 } }],
     npcs: [
       { id: 'st_watch', kind: 'npc', skin: 'man', x: 10, y: 6, dir: 'down',
-        text: ['送電経路を くみかえて 観測塔を おこす。それが 試練だ。', 'ひこうで 崖を こえるか、でんきで 装置を うごかすか。'] },
+        variants: [
+          { req: { allFlags: ['coreStorm'] }, text: ['雷霧の 環核が つながり、たちこめていた 雷雲が はれた。', '観測塔から 四方が 見わたせる。守護獣に みとめられた しるしだ。'] },
+          { text: ['送電経路を くみかえて 観測塔を おこす。それが 試練だ。', 'ひこうで 崖を こえるか、でんきで 装置を うごかすか。'] }
+        ] },
       { id: 'st_quest', kind: 'npc', skin: 'girl', x: 11, y: 8, dir: 'down', role: 'quest', quest: 'sqRelay' },
       { id: 'st_relay0', kind: 'npc', skin: 'man', x: 4, y: 5, dir: 'down', role: 'questTarget',
         qt: { quest: 'sqRelay', idx: 0, text: 'ひとつめの 送電中継を 修理した。あかりが ともる。', lockText: 'こしょうした 送電中継だ。' } },

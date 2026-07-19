@@ -681,8 +681,18 @@
       case 'trialDevice': return roleTrialDevice(ent);
       case 'ashStar': return roleAshStar(ent);
       default:
-        for (const t of (ent.text || ['……'])) await say(t);
+        for (const t of pickVariant(ent)) await say(t);
     }
+  }
+
+  /* 地域クリア等に応じて反応が変わる会話(最初に条件を満たす variant を採用) */
+  function pickVariant(ent) {
+    if (Array.isArray(ent.variants)) {
+      for (const v of ent.variants) {
+        if (!v.req || GD.meetsRequirements(v.req, { flags: G.flags, party: G.party }).ok) return v.text;
+      }
+    }
+    return ent.text || ['……'];
   }
 
   /* ================= ストーリーロール(碧環の旅) ================= */

@@ -140,6 +140,39 @@ console.log('1. 新ワールド採用 OK');
   console.log('7c. パズル解法ロジック(順序/水位) OK');
 }
 
+/* 7d. 反応会話(variants): 地域クリアで台詞が変わるNPCが各地域にそろい、
+ *     最初に条件を満たす variant が選ばれる(pickVariant と同じ選択規則を検証) */
+{
+  const pick = (ent, state) => {
+    if (Array.isArray(ent.variants)) {
+      for (const v of ent.variants)
+        if (!v.req || GD.meetsRequirements(v.req, state).ok) return v.text;
+    }
+    return ent.text || ['……'];
+  };
+  const reactive = [];
+  for (const map of Object.values(MAPS))
+    for (const n of (map.npcs || []))
+      if (Array.isArray(n.variants)) reactive.push(n);
+  assert.ok(reactive.length >= 4, `反応会話NPCが4体以上(実際 ${reactive.length})`);
+  // 各 variant は req 無し(既定)を1つ持つ=どの状態でも台詞が出る
+  for (const n of reactive)
+    assert.ok(n.variants.some((v) => !v.req), `${n.id}: 既定(req無し)variant が必要`);
+  // 4地域の環核クリア反応が存在する
+  const clearAware = new Set();
+  for (const n of reactive)
+    for (const v of n.variants)
+      for (const c of GD.CORE_FLAGS)
+        if (v.req && v.req.allFlags && v.req.allFlags.includes(c)) clearAware.add(c);
+  assert.deepEqual([...clearAware].sort(), [...GD.CORE_FLAGS].sort(), '4環核すべてに反応会話');
+  // 選択規則: 森NPCは coreForest 前後で台詞が変わる
+  const fo = MAPS.forest.npcs.find((n) => n.id === 'fo_walker');
+  const before = pick(fo, St({}, []));
+  const after = pick(fo, St({ coreForest: true }, []));
+  assert.notDeepEqual(before, after, 'coreForestで森NPCの台詞が変化');
+  console.log(`7d. 反応会話 ${reactive.length}体・4環核反応・選択規則 OK`);
+}
+
 /* 8. 3方針エンディングがスコアから導出される */
 {
   const mk = (r, n, sh) => ({ scores: { restore: r, nature: n, share: sh } });
