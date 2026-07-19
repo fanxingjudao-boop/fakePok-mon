@@ -1034,13 +1034,13 @@
       return;
     }
     if (a.stage === 'confront') {
-      if (G.flags.ashStarForest) { await say('灰星局員「……もう むりな 強制起動は やめた。」'); return; }
+      if (G.flags.ashStarTide) { await say('灰星局員「……もう むりな 強制起動は やめた。」'); return; }
       G.flags.ashStarSeen = true;
       await say('灰星局員「災害を とめるには 碧環を 強制起動する しかない！」');
       await say('灰星局員「生態系？ そんな ことを いっている ばあいか。\nじゃまを するなら 力ずくだ！」');
-      const r = await BT().startTrainer({ id: 'ashStar_forest', name: '灰星局員', team: scaleTeam([[13, 10], [11, 11]]), money: 700, lose: ['ぐっ…… だが 災害は とまらんぞ。'] }, curMap.cave ? 'cave' : 'grass');
+      const r = await BT().startTrainer({ id: 'ashStar_tide', name: '灰星局員', team: scaleTeam([[13, 10], [11, 11]]), money: 700, lose: ['ぐっ…… だが 災害は とまらんぞ。'] }, curMap.cave ? 'cave' : 'grass');
       if (r === 'lose') { await blackout(); return; }
-      G.flags.ashStarForest = true;
+      G.flags.ashStarTide = true;
       window.StoryData.recordChoice(G, 'nature', 2);
       await say('灰星局員「……この 現場の 強制起動は とりやめる。」');
       await say('灰星局員「だが 本部は まだ あきらめて いない。\nいずれ 中央で 決着が つくだろう……」');
@@ -1431,7 +1431,7 @@
       await say(`○ 進行中の 依頼は ない。\n達成した サブクエスト: ${done.length}件`);
     }
     await say(`◆ 環核: ${cores.length ? cores.map((c) => coreNames[c]).join('・') : 'まだ ない'} (${cores.length}/4)`);
-    const ash = G.flags.ashStarRescued ? '救助あり' : G.flags.ashStarForest ? '暴走を阻止' : G.flags.ashStarSeen ? '接触した' : '未接触';
+    const ash = G.flags.ashStarRescued ? '救助あり' : G.flags.ashStarTide ? '暴走を阻止' : G.flags.ashStarSeen ? '接触した' : '未接触';
     await say(`◆ 灰星局: ${ash}\n◆ サブクエスト達成: ${done.length}/${Object.keys(QUESTS).length}`);
   }
 
@@ -1447,8 +1447,20 @@
     const cv = document.getElementById('map-cv'), c = cv.getContext('2d');
     const POS = { kodachi: [180, 252], forest: [66, 190], tide: [294, 190], ruins: [180, 150], flare: [66, 78], storm: [294, 78], nexus: [180, 28] };
     const cur = REGION_OF[G.mapId] || 'kodachi';
+    // 線は 実マップの edgeExits から導出する(設計グラフとの乖離で 架空経路を描かないため)。
     c.strokeStyle = 'rgba(200,210,240,.35)'; c.lineWidth = 3;
-    for (const [a, bn] of SD.REGION_EDGES) if (POS[a] && POS[bn]) { c.beginPath(); c.moveTo(POS[a][0], POS[a][1]); c.lineTo(POS[bn][0], POS[bn][1]); c.stroke(); }
+    const drawn = new Set();
+    for (const a in POS) {
+      const m = GD.MAPS[a]; if (!m) continue;
+      for (const dir in (m.edgeExits || {})) {
+        const b = m.edgeExits[dir].to;
+        if (!POS[b]) continue;
+        const key = [a, b].sort().join('-');
+        if (drawn.has(key)) continue;
+        drawn.add(key);
+        c.beginPath(); c.moveTo(POS[a][0], POS[a][1]); c.lineTo(POS[b][0], POS[b][1]); c.stroke();
+      }
+    }
     c.textAlign = 'center';
     for (const id in POS) {
       const [x, y] = POS[id], R = SD.REGIONS[id];

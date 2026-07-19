@@ -64,8 +64,13 @@ node tests/monster-art-smoke.cjs   # 28種の前面/背面スプライト生成
 node tests/map-validate.cjs        # 出入口接続・歩行可能性・到達性・行幅・rows一意(共有は失敗)
 node tests/world-graph.cjs         # 世界グラフ・地域解放・早期侵入防止・エンディング
 node tests/progression.cjs         # 起点/遺構/中枢ゲート・能力ゲート・試練4種・サブクエ・結末・クリア後
-node tests/ui-tap-targets.cjs      # スマホ操作ボタンの最小タップ領域44px・画面スケール外配置
+node tests/ui-tap-targets.cjs      # スマホ操作ボタンの最小タップ領域44px・画面スケール外配置(静的)
+# 実ブラウザ検証(playwright + Chromium が必要。計算後サイズ・重なり・iPhone横画面):
+PW_CHROMIUM=/path/to/chromium node tests/ui-tap-targets.mjs
 ```
+
+地図UIの経路は `story.js` の設計グラフではなく **実マップ(`world-maps.js` の `edgeExits`)から描画**するため、
+設計と実装が乖離しても架空経路は表示されません(`tests/progression.cjs` 10 で一致を検査)。
 
 セーブは `fakemon_save_v2`(旧 v1 は自動移行)。破損セーブでも起動可能。
 
