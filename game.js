@@ -547,8 +547,15 @@
   }
   const scaleTeam = (team) => team.map(([sp, lv]) => [sp, lv + levelBump()]);
 
+  // 環境変化: 地域の環核を戻すと 希少種が 遭遇テーブルに 加わる(クリア後の探索)
+  function encounterList(map) {
+    const base = map.encounters.list;
+    if (map.rareFlag && map.rareEncounters && G.flags[map.rareFlag]) return base.concat(map.rareEncounters);
+    return base;
+  }
+
   async function runWildEncounter() {
-    const list = curMap.encounters.list;
+    const list = encounterList(curMap);
     const total = list.reduce((a, e) => a + e[3], 0);
     let r = Math.random() * total, pick = list[0];
     for (const e of list) { r -= e[3]; if (r <= 0) { pick = e; break; } }
@@ -802,7 +809,19 @@
   /* ---- 守護獣の環核試練(仕掛けを ととのえてから戦闘) ---- */
   async function roleGuardian(ent) {
     const g = ent.guardian;
-    if (G.flags[g.core]) { await say(`${g.name}\n「この地の かんかくは すでに つながっている。」`); return; }
+    if (G.flags[g.core]) {
+      // クリア後: 守護獣との 再戦(信頼の 手合わせ)。強化個体・報酬あり・繰り返し可
+      await say(`${g.name}\n「この地の かんかくは すでに つながっている。」`);
+      if (!(await confirm('守護獣に もう一度 いどむ？'))) return;
+      const lv = g.lv + levelBump() + 8;
+      const def = { id: `guardian_${g.core}_rematch`, name: `${g.name}(再戦)`, team: [[g.species, lv]], money: 800, boss: true, lose: ['……よい しれんだった。また いつでも こい。'] };
+      const r = await BT().startTrainer(def, curMap.cave ? 'cave' : 'grass');
+      if (r === 'lose') { await blackout(); return; }
+      AU.jingle('badge', curMap.music);
+      await say(`${g.name}\n「みごとだ。しんらいは ゆらがぬな。」`);
+      AU.play(curMap.music);
+      return;
+    }
     if (!G.flags[`trial_${g.region}_ready`]) { await say(TRIAL_HINT[g.region] || 'まず この地の 仕掛けを ととのえよ。'); return; }
     for (const t of g.pre) await say(t);
     const def = { id: `guardian_${g.core}`, name: g.name, team: [[g.species, g.lv + levelBump()]], money: 0, boss: true, lose: ['……いまは ここまでか。'] };

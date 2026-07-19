@@ -217,4 +217,32 @@ console.log('1. 新ワールド採用 OK');
   console.log('8. 3方針エンディング OK');
 }
 
+/* 9. クリア後要素: 環境変化(希少種)・守護獣再戦 */
+{
+  // 各地域マップに rareFlag(=その環核)と rareEncounters(実在する種族)が対応
+  const regionMap = { forest: 'coreForest', tide: 'coreTide', flare: 'coreFlare', storm: 'coreStorm' };
+  for (const [id, core] of Object.entries(regionMap)) {
+    const m = MAPS[id];
+    assert.equal(m.rareFlag, core, `${id}: rareFlag が ${core}`);
+    assert.ok(Array.isArray(m.rareEncounters) && m.rareEncounters.length >= 1, `${id}: rareEncounters がある`);
+    for (const e of m.rareEncounters) {
+      assert.ok(GD.speciesById(e[0]), `${id}: 希少種 id=${e[0]} は実在する`);
+      assert.ok(e[1] > 0 && e[2] >= e[1] && e[3] > 0, `${id}: 希少種の レベル/重みが妥当`);
+    }
+  }
+  // 希少種は環核クリア後だけ加わる(encounterList 同等ロジック)
+  const eList = (map, flags) => {
+    const base = map.encounters.list;
+    return (map.rareFlag && map.rareEncounters && flags[map.rareFlag]) ? base.concat(map.rareEncounters) : base;
+  };
+  const before = eList(MAPS.forest, {});
+  const after = eList(MAPS.forest, { coreForest: true });
+  assert.equal(after.length, before.length + MAPS.forest.rareEncounters.length, 'クリア後は希少種が加わる');
+  assert.ok(!before.some((e) => e[0] === 3) && after.some((e) => e[0] === 3), 'モリドラードはクリア後のみ出現');
+  // 守護獣再戦が game.js に実装されている
+  const gj = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'game.js'), 'utf8');
+  assert.ok(/rematch/.test(gj) && /守護獣に もう一度/.test(gj), '守護獣再戦の分岐がある');
+  console.log('9. クリア後要素(環境変化の希少種4地域・守護獣再戦) OK');
+}
+
 console.log('\n進行フロー統合検証: すべて通過');

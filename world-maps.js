@@ -113,6 +113,7 @@
   M.forest = {
     id: 'forest', name: '碧樹圏', outdoor: true, music: 'route', roofColor: '#7a5a30',
     encounters: { rate: 0.14, list: [[1, 5, 8, 40], [14, 5, 8, 30], [10, 4, 7, 20], [12, 5, 8, 10]] },
+    rareFlag: 'coreForest', rareEncounters: [[3, 14, 16, 6]], // 環核回復後: 森竜モリドラードが現れる
     rows: [
       'TTTTTTTTTTTTTTTT',
       'T,,,,,,,,,,,,,,T',
@@ -210,6 +211,7 @@
   M.tide = {
     id: 'tide', name: '潮環圏', outdoor: true, music: 'route', roofColor: '#3a6a9a',
     encounters: { rate: 0.14, list: [[7, 6, 9, 40], [22, 6, 9, 30], [26, 5, 8, 20], [12, 6, 9, 10]] },
+    rareFlag: 'coreTide', rareEncounters: [[23, 15, 17, 6]], // 環核回復後: 雨を呼ぶ みずへび オオミズチ
     rows: [
       'TTTTTTTTTTTTTTTT',
       '.,,,,,,,,RRRR,,T',
@@ -350,6 +352,7 @@
   M.flare = {
     id: 'flare', name: '火脈圏', outdoor: true, music: 'route', roofColor: '#a05028',
     encounters: { rate: 0.14, list: [[4, 15, 18, 40], [18, 15, 18, 30], [27, 14, 17, 30]] },
+    rareFlag: 'coreFlare', rareEncounters: [[21, 20, 22, 6]], // 環核回復後: 魂を導く ヨミビト
     rows: [
       'TTTTTTTTTTTTTTTT',
       '.,,,,,,,,,,%%,,T',
@@ -461,6 +464,7 @@
   M.storm = {
     id: 'storm', name: '雷霧圏', outdoor: true, music: 'route', roofColor: '#8878c0',
     encounters: { rate: 0.14, list: [[16, 15, 18, 40], [24, 15, 18, 30], [25, 14, 17, 30]] },
+    rareFlag: 'coreStorm', rareEncounters: [[28, 22, 25, 6]], // 環核回復後: 伝説の雷鳥 ライメイチョウ
     rows: [
       'TTTTTTTTTTTTTTTT',
       '.,,,,,,,,,,,,,,T',
