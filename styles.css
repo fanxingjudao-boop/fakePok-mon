@@ -387,20 +387,33 @@ html, body {
 }
 #map-banner.show { opacity: 1; transform: translateY(0); }
 
-/* ---------------- コントローラ ---------------- */
+/* ---------------- コントローラ ----------------
+ * 画面スケールの外(#controls)に置き、実寸を保つ。
+ * 全ボタンは最小タップ領域 44px を満たす(依頼書 UI要件)。 */
+#controls {
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 10px 0 8px;
+}
 #pads {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  width: 496px;
-  margin: 12px auto 0;
+  gap: 8px;
+  width: 100%;
+  max-width: 496px;
+  margin: 0 auto;
+  padding: 0 12px;
 }
 #dpad {
   display: grid;
-  grid-template-columns: 46px 46px 46px;
-  grid-template-rows: 46px 46px 46px;
+  grid-template-columns: repeat(3, 46px);
+  grid-template-rows: repeat(3, 46px);
+  flex: 0 0 auto;
 }
 .pad-btn {
+  min-width: 44px; min-height: 44px;
   background: #3a3a4c;
   border: none;
   border-radius: 8px;
@@ -408,31 +421,36 @@ html, body {
   font-size: 16px;
   cursor: pointer;
   box-shadow: 0 3px 0 #1c1c28;
+  touch-action: none;
 }
 .pad-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #1c1c28; }
 .pad-btn.up { grid-area: 1 / 2; }
 .pad-btn.left { grid-area: 2 / 1; }
 .pad-btn.right { grid-area: 2 / 3; }
 .pad-btn.down { grid-area: 3 / 2; }
-.pad-center { grid-area: 2 / 2; background: #32323f; }
+.pad-center { grid-area: 2 / 2; background: #32323f; border-radius: 8px; }
 
-#sysbtns { display: flex; flex-direction: column; gap: 8px; }
+#sysbtns { display: flex; flex-direction: column; gap: 8px; flex: 0 1 auto; }
 .sys-btn {
+  min-height: 44px;
+  min-width: 60px;
   background: #3a3a4c;
   border: none;
   border-radius: 12px;
   color: #b8b8c8;
   font-size: 11px;
-  padding: 7px 18px;
+  padding: 0 14px;
   letter-spacing: 2px;
   cursor: pointer;
   box-shadow: 0 3px 0 #1c1c28;
+  touch-action: none;
 }
 .sys-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #1c1c28; }
 
-#ab { display: flex; gap: 14px; align-items: flex-end; }
+#ab { display: flex; gap: 12px; align-items: flex-end; flex: 0 0 auto; }
 .ab-btn {
-  width: 58px; height: 58px;
+  width: 56px; height: 56px;
+  min-width: 44px; min-height: 44px;
   border-radius: 50%;
   border: none;
   font-size: 20px;
@@ -440,6 +458,7 @@ html, body {
   color: #fff;
   cursor: pointer;
   box-shadow: 0 4px 0 rgba(0,0,0,.45);
+  touch-action: none;
 }
 .ab-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0,0,0,.45); }
 .ab-btn.a { background: radial-gradient(circle at 35% 30%, #e86858, #b02820); }
@@ -451,4 +470,17 @@ html, body {
   font-size: 11px;
   margin-top: 10px;
   letter-spacing: 1px;
+}
+
+/* せまい画面: すき間を詰めて 3グループを収めつつ、ボタンは 44px を死守 */
+@media (max-width: 400px) {
+  #pads { padding: 0 6px; gap: 4px; }
+  #dpad { grid-template-columns: repeat(3, 44px); grid-template-rows: repeat(3, 44px); }
+  #ab { gap: 8px; }
+  .ab-btn { width: 48px; height: 48px; }
+  .sys-btn { min-width: 50px; padding: 0 8px; letter-spacing: 1px; }
+}
+/* 低い画面(横持ちなど): テキストヒントを隠して縦の余白を確保 */
+@media (max-height: 480px) {
+  .hint { display: none; }
 }

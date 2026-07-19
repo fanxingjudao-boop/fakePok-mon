@@ -64,13 +64,16 @@
       <!-- 進化・殿堂入りなどの演出レイヤ -->
       <div id="cine" class="fullveil hidden"></div>
     </div>
+  </div>
 
+  <!-- 操作パッドは画面スケールの外に置き、実寸(最小44px)を保つ -->
+  <div id="controls">
     <div id="pads">
       <div id="dpad">
-        <button data-key="up" class="pad-btn up">▲</button>
-        <button data-key="left" class="pad-btn left">◀</button>
-        <button data-key="right" class="pad-btn right">▶</button>
-        <button data-key="down" class="pad-btn down">▼</button>
+        <button data-key="up" class="pad-btn up" aria-label="うえ">▲</button>
+        <button data-key="left" class="pad-btn left" aria-label="ひだり">◀</button>
+        <button data-key="right" class="pad-btn right" aria-label="みぎ">▶</button>
+        <button data-key="down" class="pad-btn down" aria-label="した">▼</button>
         <div class="pad-center"></div>
       </div>
       <div id="sysbtns">

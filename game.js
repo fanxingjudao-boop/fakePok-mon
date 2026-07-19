@@ -1313,6 +1313,7 @@
     debugWarp: (id, x, y, dir) => { if (G && GD.MAPS[id]) loadMap(id, x, y, dir || 'down'); },
     debugEntity: async (id) => { const e = (curMap && [...(curMap.npcs || []), ...(curMap.trainers || [])].find((n) => n.id === id)); if (e) await handleEntity(e); return !!e; },
     debugVisible: (id) => { const e = curMap && [...(curMap.npcs || []), ...(curMap.trainers || [])].find((n) => n.id === id); return e ? npcVisible(e) : null; },
+    debugHeld: () => [...Input.held],
     queueEvolution: (mon) => evoQueue.set(mon.uid, mon),
     clearEvolutions: () => evoQueue.clear(),
     runEvolutions: async () => {
@@ -1716,18 +1717,25 @@
    * 縦横どちらにも収まる倍率で縮小し、translateで正確に中央寄せする。
    * (transform-origin: top center + margin:auto だと縮小時に右へズレる)
    */
+  // 画面(#console)だけを縮小し、操作パッド(#controls)は実寸のまま下に置く。
+  // これにより、依頼書どおり ボタンの物理タップ領域が スケールで 44px 未満に潰れない。
   function fitScale() {
     const con = $('console');
-    con.style.margin = '0';
+    con.style.margin = '0 auto';
     con.style.transformOrigin = 'top left';
     con.style.transform = 'none';
+    con.style.marginBottom = '0';
     const w = con.offsetWidth || 520;
     const h = con.offsetHeight || 620;
+    const ctrl = $('controls');
+    const ch = ctrl ? ctrl.offsetHeight : 0;      // 実寸パッドの高さを確保
     const vw = window.innerWidth;
     const vh = window.innerHeight;
-    const scale = Math.min(1, vw / w, vh / h);
+    const scale = Math.min(1, vw / w, Math.max(0.2, (vh - ch) / h));
     const x = Math.max(0, (vw - w * scale) / 2);
     con.style.transform = `translate(${x}px, 0px) scale(${scale})`;
+    // transform は レイアウト高さを変えないため、縮小ぶんの余白を相殺してパッドを直下へ
+    con.style.marginBottom = `${-(h * (1 - scale))}px`;
   }
   window.addEventListener('resize', fitScale);
   window.addEventListener('orientationchange', fitScale);

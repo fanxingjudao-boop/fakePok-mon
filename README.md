@@ -63,7 +63,8 @@ node --check world-maps.js data.js story.js game.js
 node tests/monster-art-smoke.cjs   # 28種の前面/背面スプライト生成
 node tests/map-validate.cjs        # 出入口接続・歩行可能性・到達性・行幅・rows一意(共有は失敗)
 node tests/world-graph.cjs         # 世界グラフ・地域解放・早期侵入防止・エンディング
-node tests/progression.cjs         # 起点/遺構/中枢ゲート・能力ゲート・試練4種・サブクエ・結末
+node tests/progression.cjs         # 起点/遺構/中枢ゲート・能力ゲート・試練4種・サブクエ・結末・クリア後
+node tests/ui-tap-targets.cjs      # スマホ操作ボタンの最小タップ領域44px・画面スケール外配置
 ```
 
 セーブは `fakemon_save_v2`(旧 v1 は自動移行)。破損セーブでも起動可能。
@@ -88,6 +89,7 @@ node tests/progression.cjs         # 起点/遺構/中枢ゲート・能力ゲ�
   アークを進めた場合、ゲンドウを退けるまで **最終決定に進めない**。結末に反映。
 - 敗北ペナルティは所持金半減→**固定額(最大500)**。
 - **クリア後要素**: 環核を戻すと 各地域に **希少種**(森竜/雨蛇/導き火/雷鳥)が出現。守護獣は **再戦**(強化個体)可能。未解決クエストは継続。
+- **スマホUI**: 操作パッドは 画面スケールの外に置き、**最小タップ領域44px**を確保(縮小で潰れない)。せまい画面/横持ちにも対応。
 
 **今後の増分候補**
 
