@@ -55,7 +55,7 @@
     const ctx = cv.getContext('2d');
     ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0, 0, cv.width, cv.height);
-    ctx.drawImage(window.Sprites.monCanvas(spId, back), 0, 0, 16, 16, 0, 0, cv.width, cv.height);
+    ctx.drawImage(window.Sprites.monCanvas(spId, back), 0, 0, cv.width, cv.height);
   }
 
   function setHpBar(el, pct) {
