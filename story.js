@@ -17,8 +17,9 @@
   'use strict';
   const GD = () => (typeof window !== 'undefined' ? window.GameData : (typeof global !== 'undefined' ? global.window.GameData : null));
 
-  /* ---- 世界グラフ(brief の mermaid に対応) ----
-   * kodachi(拠点) → forest/tide → ruins(中央遺構) → flare/storm → nexus(碧環中枢)
+  /* ---- 世界グラフ(実マップ world-maps.js と一致) ----
+   * kodachi(拠点)を forest/tide/ruins のハブに、ruins(中央遺構)を flare/storm/nexus の
+   * ハブにした ハブ&スポーク構造。2環核で ruins、4環核+レン決着で nexus が開く。
    * forest<->tide, flare<->storm は横移動(循環)。
    * unlock は「その地域へ入る」条件。final は最終地域。
    * band は基準の敵レベル帯。core は試練クリアで立つ環核フラグ。
@@ -52,12 +53,14 @@
   };
 
   // 移動可能な接続(双方向)。ゲートは各 REGION.unlock で判定。
+  // 実マップ(world-maps.js の edgeExits)と一致させる。
+  // 中央拠点コダチが forest/tide/ruins のハブ、中央遺構ruinsが flare/storm/nexus のハブ。
+  // forest<->tide, flare<->storm は横断路(循環)。
   const REGION_EDGES = [
-    ['kodachi', 'forest'], ['kodachi', 'tide'],
-    ['forest', 'ruins'], ['tide', 'ruins'],
-    ['ruins', 'flare'], ['ruins', 'storm'],
-    ['flare', 'nexus'], ['storm', 'nexus'],
-    ['forest', 'tide'], ['flare', 'storm']
+    ['kodachi', 'forest'], ['kodachi', 'tide'], ['kodachi', 'ruins'],
+    ['forest', 'tide'],
+    ['ruins', 'flare'], ['ruins', 'storm'], ['ruins', 'nexus'],
+    ['flare', 'storm']
   ];
 
   /* ---- ストーリーフラグの定義(分類つき・可読性のため) ---- */
@@ -73,7 +76,7 @@
     // 敵対組織「灰星局」——災害を止めるため碧環を強制起動する復旧技術者集団
     ashStar: {
       ashStarSeen:     '灰星局と初めて接触した',
-      ashStarForest:   '碧樹圏での灰星局の暴走を止めた',
+      ashStarTide:     '潮環圏での灰星局の暴走を止めた',
       ashStarTide:     '潮環圏での灰星局の暴走を止めた',
       ashStarRescued:  '崩落現場で灰星局員を救助した'
     },

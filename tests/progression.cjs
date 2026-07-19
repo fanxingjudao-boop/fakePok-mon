@@ -245,4 +245,41 @@ console.log('1. 新ワールド採用 OK');
   console.log('9. クリア後要素(環境変化の希少種4地域・守護獣再戦) OK');
 }
 
+/* 10. 地図UIの経路 = 実マップ: REGION_EDGES が world-maps の edgeExits と一致する
+ *     (地図に架空経路を描かない/実在経路を落とさない) */
+{
+  const REGIONS = Object.keys(S.REGIONS); // 地図に描かれる地域ノード
+  const norm = (a, b) => [a, b].sort().join('-');
+  // 実マップの region 間接続(両端が地域ノードの edgeExits のみ)
+  const real = new Set();
+  for (const id of REGIONS) {
+    const m = MAPS[id]; if (!m) continue;
+    for (const dir of Object.keys(m.edgeExits || {})) {
+      const to = m.edgeExits[dir].to;
+      if (REGIONS.includes(to)) real.add(norm(id, to));
+    }
+  }
+  const design = new Set(S.REGION_EDGES.map(([a, b]) => norm(a, b)));
+  const phantom = [...design].filter((e) => !real.has(e)); // 設計にあるが実在しない
+  const missing = [...real].filter((e) => !design.has(e));  // 実在するが設計に無い
+  assert.deepEqual(phantom, [], `地図に架空経路がある: ${phantom.join(', ')}`);
+  assert.deepEqual(missing, [], `地図が実在経路を落としている: ${missing.join(', ')}`);
+  // 地図描画は edgeExits 由来である(REGION_EDGES 直描きへ戻っていない)
+  const gj = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'game.js'), 'utf8');
+  const mapFn = gj.slice(gj.indexOf('async function mapScreen'), gj.indexOf('async function dexScreen'));
+  assert.ok(/edgeExits/.test(mapFn), '地図描画は edgeExits から線を導出する');
+  console.log(`10. 地図UI経路=実マップ 一致(${real.size}経路)OK`);
+}
+
+/* 11. 灰星局フラグ名が地域と一致(潮環=ashStarTide、旧ashStarForestは残っていない) */
+{
+  const ti = MAPS.tide.npcs.find((n) => n.role === 'ashStar' && n.ashStar && n.ashStar.stage === 'confront');
+  assert.ok(ti, '潮環圏に 灰星局(confront)がいる');
+  const gj = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'game.js'), 'utf8');
+  assert.ok(!/ashStarForest/.test(gj), 'game.js に旧名 ashStarForest が残っていない');
+  assert.ok(/ashStarTide\s*=\s*true/.test(gj), 'confront は ashStarTide を立てる');
+  assert.ok(!/ashStarForest/.test(require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'story.js'), 'utf8')), 'story.js に旧名が残っていない');
+  console.log('11. 灰星局フラグ名(潮環=ashStarTide)整合 OK');
+}
+
 console.log('\n進行フロー統合検証: すべて通過');
