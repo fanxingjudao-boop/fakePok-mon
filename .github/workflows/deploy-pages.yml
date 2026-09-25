@@ -24,11 +24,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: v2/package-lock.json
+
+      - name: Build v2 (共鳴バトル)
+        working-directory: v2
+        run: |
+          npm ci
+          npm run build
+
       - name: Build site
         run: |
-          mkdir -p _site/world
+          mkdir -p _site/world _site/v2
           cp index.html styles.css audio.js world-maps.js data.js story.js sprites.js monster-art.js battle.js game.js README.md _site/
           cp world/index.html world/world-data.js _site/world/
+          cp v2/dist/index.html _site/v2/index.html
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
