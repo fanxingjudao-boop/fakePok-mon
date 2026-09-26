@@ -87,7 +87,7 @@ function layout(): void {
   const app = $('app');
   const w = window.innerWidth - 32;
   const h = window.innerHeight - 16;
-  const sideDock = Math.round(Math.min(380, Math.max(290, w * 0.3)));
+  const sideDock = Math.round(Math.min(420, Math.max(320, w * 0.32)));
   const sideScale = Math.min((w - sideDock - 10) / 1280, h / 720);
   // 下置きは記録帳に最低 320px の高さを確保できるときだけ(技の一覧をスクロールなしで見せたい)
   const bottomScale = Math.min(w / 1280, (h - 320) / 720);

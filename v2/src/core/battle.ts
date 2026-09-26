@@ -39,8 +39,15 @@ export function createBattle(encounterId: string, seed = 1): BattleState {
   PARTY.forEach((id, i) => units.push(makeUnit(id, `a${i}`, i)));
   units.push(makeUnit(PLAYER, 'p', 0));
   enc.enemies.forEach((id, i) => units.push(makeUnit(id, `e${i}`, i)));
-  // 初期の手番: 1手ぶんの半分 + 並び順のわずかな差(同時刻を避ける)
-  units.forEach((u, i) => { u.ct = turnDelay(u.spd, 1) * 0.5 + i * 0.01; });
+  // 初期の手番: 開幕はこちらの先制。味方と巡環士が全員1回ずつ動いてから敵が動く
+  // (開幕にいきなり殴られるのは不快、という試遊の声への対応)。並び順の差で同時刻を避ける
+  const allySide = units.filter((u) => u.side !== 'enemy');
+  const openingEnd = Math.max(...allySide.map((u) => turnDelay(u.spd, 1) * 0.3));
+  units.forEach((u, i) => {
+    u.ct = u.side === 'enemy'
+      ? openingEnd + 1 + turnDelay(u.spd, 1) * 0.5 + i * 0.01
+      : turnDelay(u.spd, 1) * 0.3 + i * 0.01;
+  });
   const [first, ...rest] = enc.fieldCycle;
   const b: BattleState = {
     encounterId, units, time: 0, actor: null, intents: {},

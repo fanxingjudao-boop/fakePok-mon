@@ -11,6 +11,8 @@ import {
 } from '../core/battle.ts';
 import { ELEMENT_NAME, RP_MAX } from '../core/rules.ts';
 import { skill as skillById } from '../data/skills.ts';
+import { unitDef } from '../data/units.ts';
+import { ART } from '../data/art.ts';
 import type { Cmd, InputHub } from '../input.ts';
 
 export interface ChooseHooks {
@@ -27,7 +29,22 @@ const CAT_LABEL: Record<SkillCategory, string> = {
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
 const elBadge = (el: string) => `<span class="wk" style="background:var(--el-${el})">${esc(ELEMENT_NAME[el as keyof typeof ELEMENT_NAME])}</span>`;
 const sideColor = (u: Unit) => (u.side === 'ally' ? 'var(--ally)' : u.side === 'enemy' ? 'var(--enemy)' : 'var(--gold)');
-const speedTag = (w: number) => (w <= 0.8 ? '<span class="tag fast">速</span>' : w >= 1.2 ? '<span class="tag heavy">重</span>' : '<span class="tag">普</span>');
+
+/** 顔アイコン。絵は CSS で一度だけ読み込み、HTML にはクラス名だけを書く(再描画のたびに画像データを埋め込まない) */
+let portraitCss = false;
+function ensurePortraitCss(): void {
+  if (portraitCss || typeof document === 'undefined') return;
+  portraitCss = true;
+  const rules = Object.entries(ART).filter(([, a]) => a.img).map(([k, a]) => `.pt-${k}{background-image:url("${a.img}")}`);
+  const el = document.createElement('style');
+  el.textContent = rules.join('\n');
+  document.head.appendChild(el);
+}
+const portrait = (u: Unit, size = '') => {
+  const art = unitDef(u.defId).art;
+  const has = !!ART[art]?.img;
+  return `<span class="pt ${u.side}${size ? ` ${size}` : ''}${has ? ` pt-${art}` : ''}${u.side === 'enemy' ? ' flip' : ''}" aria-hidden="true">${has ? '' : esc(u.name.slice(0, 1))}</span>`;
+};
 
 export class Dock {
   auto = false;
@@ -46,6 +63,7 @@ export class Dock {
   private resolveFn: ((a: Action) => void) | null = null;
   private unlisten: (() => void) | null = null;
   private memoHtml = '';
+  private boardOpen = true;
   private readonly root: HTMLElement;
   private readonly input: InputHub;
 
@@ -55,6 +73,19 @@ export class Dock {
     root.addEventListener('click', (e) => this.onClick(e));
     root.addEventListener('pointerover', (e) => this.onHover(e));
     root.addEventListener('focusin', (e) => this.onHover(e));
+    root.addEventListener('toggle', (e) => {
+      const d = e.target as HTMLElement;
+      if (d.tagName === 'DETAILS') this.boardOpen = (d as HTMLDetailsElement).open;
+    }, true);
+    // 数字キーで技・対象を直接選ぶ(1〜9)
+    window.addEventListener('keydown', (e) => {
+      if (this.phase !== 'choose' || e.ctrlKey || e.metaKey || e.altKey) return;
+      const n = Number(e.key);
+      if (!Number.isInteger(n) || n < 1 || n > 9) return;
+      const btn = this.root.querySelector<HTMLButtonElement>(`.panel .cmd[data-key="${n}"]`);
+      if (btn && !btn.disabled) { e.preventDefault(); btn.focus(); btn.click(); }
+    });
+    ensurePortraitCss();
   }
 
   /* ---------- 外部から ---------- */
@@ -68,7 +99,7 @@ export class Dock {
 
   /** 記録帳のメモ欄(ヒントや出来事)。戦場の上に重ねないので視界を遮らない */
   memo(html: string, kind: 'tip' | 'info' | 'warn' = 'info'): void {
-    this.memoHtml = `<div class="memo ${kind}">${kind === 'tip' ? '<span class="memo-k">ヒント</span>' : ''}<span>${html}</span></div>`;
+    this.memoHtml = `<div class="memo ${kind}">${kind === 'tip' ? '<span class="memo-k">ヒント</span>' : ''}<span class="memo-t">${html}</span><button class="memo-x" type="button" data-act="memo-x" aria-label="メモを閉じる">×</button></div>`;
     const el = this.root.querySelector('.memo-slot');
     if (el) el.innerHTML = this.memoHtml;
   }
@@ -125,10 +156,9 @@ export class Dock {
     const a = this.actor;
     const head = `
       <div class="dock-head">
-        <div class="actor-chip">
-          <span class="dot" style="background:${a ? sideColor(a) : 'var(--faint)'}"></span>
-          <span>${a ? esc(a.name) : '—'}</span>
-          <span class="sub">${a ? 'の番' : ''}</span>
+        <div class="actor-chip" style="--side:${a ? sideColor(a) : 'var(--faint)'}">
+          ${a ? portrait(a, 'lg') : '<span class="pt lg"></span>'}
+          <span class="who"><span class="nm">${a ? esc(a.name) : '—'}</span><span class="sub">${a ? (a.side === 'enemy' ? 'の行動' : 'の番') : ''}</span></span>
         </div>
         <div class="rp" role="img" aria-label="共鳴ゲージ ${b.rp}/${RP_MAX}">
           ${Array.from({ length: RP_MAX }, (_, i) => `<span class="pip${i < b.rp ? ' on' : ''}${i === 4 ? ' mark' : ''}"></span>`).join('')}
@@ -153,10 +183,17 @@ export class Dock {
     const tabs = cats.length > 1
       ? `<div class="tabs" role="tablist">${cats.map((c) => `<button class="tab" type="button" role="tab" data-cat="${c}" aria-selected="${c === this.cat}">${CAT_LABEL[c]}</button>`).join('')}</div>`
       : '';
-    return `${tabs}<div class="cmds">${opts.map((o) => this.skillBtn(o)).join('')}</div>`;
+    return `${tabs}<div class="cmds">${opts.map((o, i) => this.skillBtn(o, i + 1)).join('')}</div>`;
   }
 
-  private skillBtn(o: SkillOption): string {
+  /** この重さの技を使うと、次の自分の番は何番目か */
+  private nextTurnAfter(weight: number): number {
+    if (!this.b || !this.actor) return 0;
+    const tl = previewTimeline(this.b, 12, weight);
+    return tl.findIndex((x) => x.uid === this.actor?.uid) + 1;
+  }
+
+  private skillBtn(o: SkillOption, key: number): string {
     const s = o.skill;
     const el = s.elements.length > 1 ? 'none' : s.elements[0];
     const elLabel = s.elements.length > 1 ? '共' : ELEMENT_NAME[s.elements[0]];
@@ -164,10 +201,14 @@ export class Dock {
     const cost = s.cost ? `<span class="tag cost num">RP${s.cost}</span>` : '';
     const item = s.item && this.b ? `<span class="tag num">残${this.b.items[s.item]}</span>` : '';
     const desc = o.usable ? esc(s.desc) : `<span style="color:var(--danger)">${esc(o.reason ?? '')}</span> ・ ${esc(s.desc)}`;
-    return `<button class="cmd${s.category === 'resonance' ? ' resonance' : ''}" type="button" data-skill="${s.id}" ${o.usable ? '' : 'disabled'}>
+    const nx = this.nextTurnAfter(s.weight);
+    const speed = `<span class="tag ${s.weight <= 0.8 ? 'fast' : s.weight >= 1.2 ? 'heavy' : ''}" title="この技を使った後、次に自分の番が来る順番">次の番 ${nx > 0 ? `${nx}番目` : '—'}</span>`;
+    const members = s.category === 'resonance' && s.partners && this.b
+      ? `<span class="members">${s.partners.map((m) => { const u = this.b?.units.find((x) => x.defId === m); return u ? portrait(u, 'sm') : ''; }).join('')}</span>` : '';
+    return `<button class="cmd${s.category === 'resonance' ? ' resonance' : ''}" type="button" data-skill="${s.id}" data-key="${key}" ${o.usable ? '' : 'disabled'}>
         <span class="el" style="background:${s.elements.length > 1 ? 'var(--hekikan)' : `var(--el-${el})`}">${esc(elLabel)}</span>
-        <span class="name">${esc(s.name)}</span>
-        <span class="meta">${power}${cost}${item}${speedTag(s.weight)}</span>
+        <span class="name">${key <= 9 ? `<kbd>${key}</kbd>` : ''}${esc(s.name)}${members}</span>
+        <span class="meta">${power}${cost}${item}${speed}</span>
         <span class="desc">${desc}</span>
       </button>`;
   }
@@ -177,29 +218,30 @@ export class Dock {
       : s.target === 'ally' ? allies(b).filter(isActive)
         : allies(b).filter((u) => u.gone === 'ko');
     const valid = new Set(validTargets(b, a, s).map((t) => t.uid));
-    const rows = list.map((t) => {
+    const rows = list.map((t, i) => {
       const ok = valid.has(t.uid);
-      let meta = '';
-      let desc = '';
+      const pct = Math.max(0, Math.round((t.hp / t.maxHp) * 100));
+      let big = '';
+      let sub = '';
       if (t.side === 'enemy') {
-        const hp = Math.round((t.hp / t.maxHp) * 100);
-        meta = `<span class="tag num">HP${hp}%</span>${t.shieldMax ? `<span class="tag num">${t.broken ? 'BREAK' : `盾${t.shield}`}</span>` : ''}`;
         if (s.kind === 'attack') {
           const dmg = estimateDamage(b, a, t, s);
           const weakKnown = s.elements.some((e) => t.revealed.includes(e));
-          meta += `<span class="tag num">予想 約${dmg}</span>${weakKnown ? '<span class="tag warn">弱点</span>' : ''}`;
+          const kill = dmg >= t.hp;
+          big = `<span class="dmg${kill ? ' kill' : ''}">約${dmg}${kill ? ' 倒せる' : ''}</span>`;
+          if (weakKnown) big += '<span class="tag warn">弱点!</span>';
         }
-        if (s.kind === 'pacify') desc = ok ? '鎮められる' : esc(pacifyBlockReason(b, t) ?? '');
-        else desc = `弱点: ${this.weakHtml(t)}`;
+        if (s.kind === 'pacify') big = ok ? '<span class="dmg ok">鎮められる</span>' : '';
+        const shield = t.shieldMax ? `<span class="shield">${t.broken ? 'BREAK' : '■'.repeat(t.shield) + '□'.repeat(t.shieldMax - t.shield)}</span>` : '';
+        sub = s.kind === 'pacify' && !ok ? esc(pacifyBlockReason(b, t) ?? '') : `${shield} 弱点 ${this.weakHtml(t)}`;
       } else {
-        meta = `<span class="tag num">${t.hp}/${t.maxHp}</span>`;
-        desc = t.gone === 'ko' ? '倒れている' : t.status.coveredBy ? 'かばわれている' : '';
+        sub = `<span class="num">${t.hp}/${t.maxHp}</span> ${t.gone === 'ko' ? '倒れている' : t.status.coveredBy ? 'かばわれている' : ''}`;
       }
-      return `<button class="cmd" type="button" data-target="${t.uid}" ${ok ? '' : 'disabled'}>
-          <span class="el" style="background:${t.side === 'enemy' ? 'var(--enemy)' : 'var(--ally)'}">${esc(t.name.slice(0, 1))}</span>
-          <span class="name">${esc(t.name)}</span>
-          <span class="meta">${meta}</span>
-          <span class="desc">${desc}</span>
+      return `<button class="cmd target" type="button" data-target="${t.uid}" data-key="${i + 1}" ${ok ? '' : 'disabled'}>
+          ${portrait(t, 'md')}
+          <span class="name"><kbd>${i + 1}</kbd>${esc(t.name)}</span>
+          <span class="meta">${big}</span>
+          <span class="desc"><span class="bar${t.side === 'enemy' ? ' enemy' : ''}"><i style="width:${pct}%"></i></span><span class="sub">${sub}</span></span>
         </button>`;
     }).join('');
     return `<div class="panel-title"><button class="back" type="button" data-act="back">← 戻る</button><span>対象を選ぶ: <b>${esc(s.name)}</b></span></div><div class="cmds">${rows}</div>`;
@@ -217,12 +259,12 @@ export class Dock {
     const tl = previewTimeline(b, 8);
     const now = b.actor ? unit(b, b.actor) : null;
     const chips = [
-      now ? `<span class="chip now ${now.side}">今: ${esc(now.name)}</span>` : '',
-      ...tl.map((x) => {
+      now ? `<span class="chip now ${now.side}"><span class="n">今</span>${portrait(now, 'xs')}${esc(now.name)}</span>` : '',
+      ...tl.map((x, i) => {
         const u = unit(b, x.uid);
-        return `<span class="chip ${u.side}">${esc(u.name)}${x.recover ? '(立直)' : x.charge ? '(溜め)' : ''}</span>`;
+        return `<span class="chip ${u.side}"><span class="n">${i + 1}</span>${portrait(u, 'xs')}${esc(u.side === 'player' ? 'ユウ' : u.name)}${x.recover ? '(立直)' : x.charge ? '(溜め)' : ''}</span>`;
       }),
-    ].join('');
+    ].join('<span class="arrow" aria-hidden="true">›</span>');
     const f = fieldForecast(b);
     const fieldLine = `<div class="fieldline">場 ${elBadge(f.now)} あと${f.inTurns}手で ${elBadge(f.next)} へ ・ 同属性の技 ×1.25</div>`;
     const eRows = enemies(b).map((e) => {
@@ -259,7 +301,8 @@ export class Dock {
         <div class="bar"><i style="width:${pct}%"></i></div>
         <div class="info num">${u.hp}/${u.maxHp} ${esc(st)}</div></div>`;
     }).join('');
-    return `<div class="board"><h3>行動順</h3><div class="tl">${chips}</div>${fieldLine}<h3>敵</h3>${eRows}<h3>仲間</h3>${aRows}</div>`;
+    return `<details class="board"${this.boardOpen ? ' open' : ''}><summary>戦況(行動順・敵の予告・HP)</summary>
+      <h3>行動順 <span class="legend"><i class="ally"></i>味方 <i class="enemy"></i>敵 <i class="player"></i>ユウ</span></h3><div class="tl">${chips}</div>${fieldLine}<h3>敵</h3>${eRows}<h3>仲間</h3>${aRows}</details>`;
   }
 
   /* ---------- 操作 ---------- */
@@ -270,6 +313,7 @@ export class Dock {
     if (act === 'auto') { this.auto = !this.auto; t.setAttribute('aria-pressed', String(this.auto)); this.onToggleAuto?.(this.auto); return; }
     if (act === 'settings') { this.onOpenSettings?.(); return; }
     if (act === 'help') { this.onOpenHelp?.(); return; }
+    if (act === 'memo-x') { this.memoHtml = ''; const m = this.root.querySelector('.memo-slot'); if (m) m.innerHTML = ''; return; }
     if (this.phase !== 'choose' || !this.b || !this.actor) return;
     if (act === 'back') { this.back(); return; }
     if (t.dataset.cat) { this.cat = t.dataset.cat as SkillCategory; this.draw(); this.focusFirst(); return; }

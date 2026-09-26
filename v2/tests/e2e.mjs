@@ -96,7 +96,7 @@ for (const enc of ['wild', 'ashstar', 'guardian']) {
   });
 }
 
-for (const [name, w, h] of [['phone-portrait', 390, 844], ['phone-landscape', 844, 390], ['desktop', 1280, 800]]) {
+for (const [name, w, h] of [['phone-portrait', 390, 844], ['phone-landscape', 844, 390], ['desktop', 1280, 800], ['panel', 700, 900]]) {
   await check(`レイアウト ${name}: ボタン44px以上・横スクロールなし`, async () => {
     const { page, errors } = await openPage(w, h);
     await page.evaluate(() => { window.__hekikan.setSpeed(2); });
