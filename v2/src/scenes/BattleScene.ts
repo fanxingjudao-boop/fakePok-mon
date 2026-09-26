@@ -65,9 +65,6 @@ interface UView {
   shownHp: number;
 }
 
-/** ユーザー素材(src/assets/user/)。ビルド時に存在するファイルだけが同梱される */
-const USER_ART = import.meta.glob('../assets/user/**/*.{png,webp,jpg}', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
-const userArtUrl = (file: string): string | undefined => USER_ART[`../assets/user/${file}`];
 
 export class BattleScene extends Phaser.Scene {
   static host: BattleHost;
@@ -107,11 +104,10 @@ export class BattleScene extends Phaser.Scene {
 
   /* ---------------- 読み込み ---------------- */
   preload(): void {
-    // ユーザーが用意した絵があれば使う。無ければ手続き生成の仮絵(実行時に存在確認の通信はしない)
+    // ユーザー素材(下ごしらえ済みの透過WebP)があれば使う。無ければ手続き生成の仮絵
     for (const [key, a] of Object.entries(ART)) {
       const k = `user_${key}`;
-      const url = userArtUrl(a.file);
-      if (url && !this.textures.exists(k)) this.load.image(k, url);
+      if (a.img && !this.textures.exists(k)) this.load.image(k, a.img);
     }
   }
 
@@ -146,6 +142,10 @@ export class BattleScene extends Phaser.Scene {
     return this.textures.exists(`user_${art}`) ? `user_${art}` : `art_${art}`;
   }
 
+  private isUserArt(defId: string): boolean {
+    return this.textures.exists(`user_${unitDef(defId).art}`);
+  }
+
   /* ---------------- 構築 ---------------- */
   create(): void {
     this.ensureTextures();
@@ -169,7 +169,8 @@ export class BattleScene extends Phaser.Scene {
     // 巡環士ユウ(狙われない。行動順に並ぶ)
     const p = this.b.units.find((u) => u.side === 'player') as Unit;
     const emb = this.add.image(PLAYER_POS.x, PLAYER_POS.y, this.artKey(p.defId)).setOrigin(0.5, 1);
-    emb.setScale(84 / Math.max(emb.width, emb.height)).setDepth(8);
+    // ユーザー素材(全身の立ち絵)は大きめに、仮の紋章は小さめに
+    emb.setScale((this.isUserArt(p.defId) ? 124 : 84) / Math.max(emb.width, emb.height)).setDepth(8);
     const pname = this.add.text(PLAYER_POS.x, PLAYER_POS.y + 4, '巡環士ユウ', this.style(20, '#ffc76a')).setOrigin(0.5, 0).setDepth(8);
     this.views.set(p.uid, {
       uid: p.uid, sprite: emb, x: PLAYER_POS.x, y: PLAYER_POS.y, scale: emb.scale,
@@ -199,7 +200,7 @@ export class BattleScene extends Phaser.Scene {
   private makeUnitView(u: Unit, pos: { x: number; y: number }, flip: boolean): void {
     const art = ART[unitDef(u.defId).art];
     const sprite = this.add.image(pos.x, pos.y, this.artKey(u.defId)).setOrigin(0.5, 0.96).setFlipX(flip);
-    const box = BASE_SIZE * art.scale;
+    const box = BASE_SIZE * (this.isUserArt(u.defId) ? art.imgScale ?? art.scale : art.scale);
     const scale = box / Math.max(sprite.width, sprite.height);
     sprite.setScale(scale).setDepth(10 + pos.y / 100);
     sprite.setInteractive({ useHandCursor: true, pixelPerfect: false });

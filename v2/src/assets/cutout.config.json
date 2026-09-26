@@ -1,0 +1,19 @@
+{
+  "_説明": "背景除去の方法を画像ごとに上書きする。既定は ml(AIで背景除去)。key は外周から背景色を塗りつぶして抜く(白い体の絵向け)。vignette は元の絵を残して周囲をぼかす(体が背景と一体の絵向け)。maxSize は出力の長辺px。",
+  "boss_forest.png": {
+    "mode": "vignette",
+    "maxSize": 900
+  },
+  "boss_flare.png": {
+    "maxSize": 900
+  },
+  "boss_tide.png": {
+    "maxSize": 900
+  },
+  "boss_storm.png": {
+    "maxSize": 900
+  },
+  "mon_w01.png": {
+    "mode": "key"
+  }
+}
