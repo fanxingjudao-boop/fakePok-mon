@@ -16,6 +16,9 @@ import w05 from '../assets/cutout/mon_w05.webp';
 import w07 from '../assets/cutout/mon_w07.webp';
 import w15 from '../assets/cutout/mon_w15.webp';
 import w17 from '../assets/cutout/mon_w17.webp';
+import w03 from '../assets/cutout/mon_w03.webp';
+import w09 from '../assets/cutout/mon_w09.webp';
+import w13 from '../assets/cutout/mon_w13.webp';
 import bossForest from '../assets/cutout/boss_forest.webp';
 import yuu from '../assets/cutout/char_yuu.webp';
 
@@ -30,6 +33,9 @@ export const ART: Record<string, ArtEntry> = {
   mouse: { img: w01, scale: 0.85, imgScale: 0.95, spec: { archetype: 'mouse', primary: '#e8d6b8', secondary: '#f4a6b4', accent: '#c98b4a' } },
   cat: { img: w15, scale: 1, imgScale: 1.05, spec: { archetype: 'cat', primary: '#ffd23f', secondary: '#2d2a33', accent: '#c9a7ff' } },
   crab: { img: w17, scale: 1.05, imgScale: 1.1, spec: { archetype: 'crab', primary: '#2fb3a6', secondary: '#f4e6c8', accent: '#bff6ff' } },
+  dove: { img: w03, scale: 0.85, imgScale: 0.85 },
+  boulder: { img: w09, scale: 1, imgScale: 1.0 },
+  fish: { img: w13, scale: 0.95, imgScale: 0.95 },
   // 強制起動装置はまだ素材なし(仮の絵)
   device: { scale: 1.1, spec: { archetype: 'device', primary: '#6b6f78', secondary: '#ff8a2a', accent: '#ff3b5c' } },
   dragon: { img: bossForest, scale: 2.3, imgScale: 2.85, spec: { archetype: 'dragon', primary: '#2f6b3f', secondary: '#7fae4f', accent: '#b6ff7a', ringCore: 'cracked' } },

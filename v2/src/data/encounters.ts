@@ -39,5 +39,26 @@ const list: EncounterDef[] = [
   },
 ];
 
-export const ENCOUNTERS: Record<string, EncounterDef> = Object.fromEntries(list.map((e) => [e.id, e]));
+/** 試遊(タイトルの「戦闘の練習」)に並べる3戦 */
 export const ENCOUNTER_ORDER = list.map((e) => e.id);
+
+/* フィールドで見えている野生に触れたときの戦闘(敵の顔ぶれは出会った群れで決まる) */
+const field: EncounterDef[] = [
+  {
+    id: 'field_forest', name: '野生の群れ', subtitle: '碧樹圏・苔むす獣道', objective: '倒すか、ブレイクして「鎮める」',
+    enemies: ['konezumi'], fieldCycle: ['wood', 'thunder', 'water', 'fire'], backdrop: 'forest', bgm: 'wild',
+    intro: ['野生のモンスターが 行く手をふさいだ。'],
+  },
+  {
+    id: 'field_road', name: '野生の群れ', subtitle: '碧樹圏・倒木の旧街道', objective: '倒すか、ブレイクして「鎮める」',
+    enemies: ['konezumi'], fieldCycle: ['fire', 'wood', 'thunder', 'water'], backdrop: 'forest', bgm: 'wild',
+    intro: ['乾いた風の中、野生のモンスターが 気を立てている。'],
+  },
+  {
+    id: 'field_marsh', name: '野生の群れ', subtitle: '碧樹圏・花粉の湿地', objective: '倒すか、ブレイクして「鎮める」',
+    enemies: ['hanamochi'], fieldCycle: ['water', 'wood', 'fire', 'thunder'], backdrop: 'forest', bgm: 'wild',
+    intro: ['花粉に酔った野生のモンスターが 近づいてくる。'],
+  },
+];
+
+export const ENCOUNTERS: Record<string, EncounterDef> = Object.fromEntries([...list, ...field].map((e) => [e.id, e]));

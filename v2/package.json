@@ -16,6 +16,7 @@
     "art:sheet": "node scripts/art-sheet.mjs"
   },
   "dependencies": {
+    "inkjs": "^2.4.0",
     "phaser": "^4.2.1"
   },
   "devDependencies": {

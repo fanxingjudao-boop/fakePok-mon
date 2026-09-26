@@ -26,6 +26,13 @@ const list: UnitDef[] = [
   { id: 'konezumi', name: 'コネズミ', side: 'enemy', element: 'none', hp: 140, atk: 90, def: 32, spd: 94, shield: 2,
     weaknesses: ['water', 'thunder'], skills: ['e_bite', 'e_quick'], pacifiable: true, ai: 'basic', art: 'mouse' },
 
+  { id: 'kobato', name: 'コバト', side: 'enemy', element: 'none', hp: 120, atk: 80, def: 30, spd: 100, shield: 2,
+    weaknesses: ['thunder', 'fire'], skills: ['e_peck', 'e_gust'], pacifiable: true, ai: 'basic', art: 'dove' },
+  { id: 'iwakoro', name: 'イワコロ', side: 'enemy', element: 'none', hp: 210, atk: 84, def: 70, spd: 44, shield: 4,
+    weaknesses: ['water', 'wood'], skills: ['e_roll', 'e_tackle'], pacifiable: true, ai: 'basic', art: 'boulder' },
+  { id: 'mizuuo', name: 'ミズウオ', side: 'enemy', element: 'water', hp: 160, atk: 92, def: 40, spd: 72, shield: 3,
+    weaknesses: ['thunder', 'wood'], skills: ['e_splash', 'e_bubble'], pacifiable: true, ai: 'basic', art: 'fish' },
+
   /* ---------- 灰星局 ---------- */
   { id: 'device', name: '強制起動装置', side: 'enemy', element: 'none', hp: 290, atk: 130, def: 70, spd: 46, shield: 3,
     weaknesses: ['water', 'thunder'], skills: ['d_overdrive', 'd_pulse'], controller: true, ai: 'device', art: 'device' },

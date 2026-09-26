@@ -7,7 +7,7 @@ import type { AudioEngine, SfxId } from '../audio/engine.ts';
 import type { Action, BattleEvent, BattleState, Guard, Skill, Timing, Unit } from '../core/types.ts';
 import {
   activeAllies, activeEnemies, createBattle, fieldForecast, intentForecast, isActive, isTimedSkill,
-  performAction, performEnemy, previewTimeline, startTurn, unit,
+  performAction, performEnemy, previewTimeline, startTurn, unit, type BattleSetup,
 } from '../core/battle.ts';
 import { chooseAllyAction } from '../core/ai.ts';
 import { ELEMENT_NAME, RP_MAX } from '../core/rules.ts';
@@ -20,7 +20,13 @@ import type { Dock } from '../ui/dock.ts';
 import type { InputHub } from '../input.ts';
 import type { Settings } from '../settings.ts';
 
-export interface BattleResult { encounterId: string; outcome: 'win' | 'lose'; stats: BattleState['stats'] }
+export interface BattleResult {
+  encounterId: string;
+  outcome: 'win' | 'lose';
+  stats: BattleState['stats'];
+  /** 戦闘の最終状態(フィールドへHP・道具・経験値を持ち帰る) */
+  final: BattleState;
+}
 export interface BattleHost {
   settings: Settings;
   audio: AudioEngine;
@@ -76,6 +82,7 @@ export class BattleScene extends Phaser.Scene {
   private b!: BattleState;
   private encounterId = 'wild';
   private seed = 1;
+  private setup: BattleSetup = {};
   private views = new Map<string, UView>();
   private tlLayer!: Phaser.GameObjects.Container;
   private hudTop!: Phaser.GameObjects.Container;
@@ -94,9 +101,10 @@ export class BattleScene extends Phaser.Scene {
 
   constructor() { super('battle'); }
 
-  init(data: { encounterId: string; seed: number }): void {
+  init(data: { encounterId: string; seed: number; setup?: BattleSetup }): void {
     this.encounterId = data.encounterId;
     this.seed = data.seed;
+    this.setup = data.setup ?? {};
     this.alive = true;
     this.views = new Map();
     this.previewWeight = null;
@@ -154,7 +162,7 @@ export class BattleScene extends Phaser.Scene {
   /* ---------------- 構築 ---------------- */
   create(): void {
     this.ensureTextures();
-    this.b = createBattle(this.encounterId, this.seed);
+    this.b = createBattle(this.encounterId, this.seed, this.setup);
     const enc = ENCOUNTERS[this.encounterId];
 
     this.add.image(W / 2, H / 2, `bg_${enc.backdrop}`).setDisplaySize(W, H);
@@ -601,7 +609,7 @@ export class BattleScene extends Phaser.Scene {
     this.banner(guardianWin ? '試練 達成' : win ? '勝利' : '敗北', guardianWin ? '守護獣が 心を開いた' : win ? '' : 'もう一度 挑もう', win ? C.hekikan : C.danger);
     this.cameras.main.flash(300, 255, 255, 255);
     await this.wait(2200);
-    if (this.alive) h.onEnd({ encounterId: this.encounterId, outcome: win ? 'win' : 'lose', stats: { ...this.b.stats } });
+    if (this.alive) h.onEnd({ encounterId: this.encounterId, outcome: win ? 'win' : 'lose', stats: { ...this.b.stats }, final: this.b });
   }
 
   /* ---------------- タイミング入力 ---------------- */

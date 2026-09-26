@@ -7,7 +7,7 @@
 import type { Action, BattleState, Guard, Timing, Unit } from './types.ts';
 import {
   activeAllies, activeEnemies, allies, createBattle, estimateDamage, intentForecast, isActive,
-  performAction, performEnemy, previewTimeline, skillOptions, startTurn, unit, validTargets,
+  performAction, performEnemy, previewTimeline, skillOptions, startTurn, unit, validTargets, type BattleSetup,
 } from './battle.ts';
 import { unitDef } from '../data/units.ts';
 import { nextRandom } from './rules.ts';
@@ -115,8 +115,8 @@ export const AUTO_MODE = PROFILES.auto;
 
 export interface SimResult { outcome: 'win' | 'lose' | 'stalemate'; turns: number; stats: BattleState['stats']; alive: number }
 
-export function simulate(encounterId: string, seed: number, profile: SkillProfile = HUMAN_AVERAGE, maxTurns = 400): SimResult {
-  const b = createBattle(encounterId, seed);
+export function simulate(encounterId: string, seed: number, profile: SkillProfile = HUMAN_AVERAGE, maxTurns = 400, setup: BattleSetup = {}): SimResult {
+  const b = createBattle(encounterId, seed, setup);
   let r = (seed * 2654435761) >>> 0 || 7;
   const roll = <K extends string>(dist: Record<K, number>): K => {
     const n = nextRandom(r); r = n.state;
