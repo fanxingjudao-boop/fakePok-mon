@@ -1,0 +1,39 @@
+name: v2 共鳴バトル CI
+
+on:
+  push:
+    paths: ['v2/**', '.github/workflows/v2-ci.yml']
+  pull_request:
+    paths: ['v2/**', '.github/workflows/v2-ci.yml']
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: v2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: v2/package-lock.json
+      - run: npm ci
+      - name: 型チェック
+        run: npm run typecheck
+      - name: 単体テスト + バランス回帰テスト
+        run: npm test
+      - name: バランスシミュレーション(レポート)
+        run: npm run sim -- 300
+      - name: ビルド(完全オフラインの単一HTML)
+        run: npm run build
+      - name: E2E(実ブラウザで3戦を最後まで)
+        run: |
+          npx playwright install --with-deps chromium
+          npm run e2e
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-screenshots
+          path: v2/test-results/

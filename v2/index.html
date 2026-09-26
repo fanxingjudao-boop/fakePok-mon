@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>碧環の旅 共鳴バトル</title>
+<meta name="description" content="ポケットレジェンド 碧環の旅 — 予告・タイムライン・ブレイク・鎮めで戦う共鳴バトルの試作版">
+</head>
+<body>
+<div id="app" class="layout-bottom">
+  <div id="stage" aria-label="戦場"></div>
+  <aside id="dock" aria-label="巡環士の記録帳(操作パネル)"></aside>
+</div>
+
+<section id="screen-title" class="screen" aria-labelledby="title-h">
+  <div class="wrap">
+    <div class="brand">
+      <canvas id="title-emblem" width="240" height="240" aria-hidden="true"></canvas>
+      <div>
+        <div class="eyebrow">ポケットレジェンド ・ 試作版 PHASE 0</div>
+        <h1 id="title-h">碧環の旅 共鳴バトル</h1>
+        <p>敵の「予告」を読み、弱点で盾を割ってブレイク。倒すか、心を鎮めるかはあなた次第。</p>
+      </div>
+    </div>
+    <div class="encs" id="enc-list"></div>
+    <div class="row-actions">
+      <button class="btn" id="btn-help" type="button">遊び方</button>
+      <button class="btn" id="btn-settings" type="button">設定</button>
+    </div>
+    <p class="note">操作: 矢印キー/十字キー・Z/Enter(決定)・X/Esc(戻る)・タップ/クリック。タイミング入力は Z・Space・タップ。</p>
+  </div>
+</section>
+
+<section id="screen-result" class="screen" hidden aria-labelledby="result-h">
+  <div class="wrap result">
+    <div>
+      <div class="brand eyebrow" id="result-sub"></div>
+      <h2 id="result-h"></h2>
+      <p class="lead" id="result-lead"></p>
+    </div>
+    <div class="stats" id="result-stats"></div>
+    <div class="row-actions">
+      <button class="btn primary" id="btn-next" type="button">次の戦いへ</button>
+      <button class="btn" id="btn-retry" type="button">もう一度</button>
+      <button class="btn" id="btn-title" type="button">タイトルへ</button>
+    </div>
+  </div>
+</section>
+
+<section id="screen-help" class="screen" hidden aria-labelledby="help-h">
+  <div class="wrap help">
+    <h2 id="help-h">遊び方</h2>
+    <section>
+      <h3>1. 予告を読む</h3>
+      <p>敵の頭上に「次に何を、誰にするか」と予想ダメージが出ます。大ダメージの相手を先に止める、かばう、回復する。毎ターンが判断です。</p>
+    </section>
+    <section>
+      <h3>2. タイムライン</h3>
+      <p>画面上部に行動順が並びます。重い技ほど自分の次の番が遅れ、速い技は早く回ってきます。技を選ぶと、次の番の位置が光ってわかります。</p>
+    </section>
+    <section>
+      <h3>3. 弱点で盾を割る → ブレイク</h3>
+      <p>敵の盾(■)は弱点属性の攻撃1ヒットごとに1つ減ります。0になるとブレイク。予告は取り消され、1手休み、受けるダメージが1.5倍に。弱点は当てるか、ユウの「記録する」で判明します。</p>
+      <p class="cycle"><span style="color:var(--el-fire)">火</span>→<span style="color:var(--el-wood)">森</span>→<span style="color:var(--el-thunder)">雷</span>→<span style="color:var(--el-water)">潮</span>→<span style="color:var(--el-fire)">火</span>(矢印の先に強い)</p>
+    </section>
+    <section>
+      <h3>4. 倒すか、鎮めるか</h3>
+      <p>ブレイク中の野生モンスターは、ユウの「鎮める」で戦わずに森へ帰せます。守護獣はHPを半分まで削り、ブレイク中に鎮めると試練達成です。灰星局の装置に操られたモンスターは、装置を止めるまで鎮められません。</p>
+    </section>
+    <section>
+      <h3>5. タイミング入力</h3>
+      <p>攻撃時と防御時にリングが縮みます。重なった瞬間に <kbd>Z</kbd> / <kbd>Space</kbd> / タップ。攻撃は Perfect で1.3倍、防御は Good で半減、Perfect でパリィ(無効)。設定で「自動」にもできます。</p>
+    </section>
+    <section>
+      <h3>6. 共鳴ゲージと共鳴技・場</h3>
+      <p>基本の行動、Perfect、ブレイクでゲージがたまります。2体・3体の組み合わせで共鳴技。戦場の「場」と同じ属性の技は1.25倍。場は数手ごとに移り変わり、環術で塗り替えられます。</p>
+    </section>
+    <div class="row-actions"><button class="btn primary" type="button" data-close>もどる</button></div>
+  </div>
+</section>
+
+<section id="screen-settings" class="screen" hidden aria-labelledby="settings-h">
+  <div class="wrap settings">
+    <h2 id="settings-h" class="help" style="margin:0;font-family:var(--display)">設定</h2>
+    <div class="opt">
+      <div class="lbl">タイミング入力</div>
+      <div class="seg" id="opt-timing">
+        <button type="button" data-v="manual">手動(リングに合わせる)</button>
+        <button type="button" data-v="auto">自動</button>
+      </div>
+      <div class="hint">自動: 攻撃は常に Good、防御は7割の確率で Good(半減)。Perfect やパリィは手動でのみ出せます。</div>
+    </div>
+    <div class="opt">
+      <div class="lbl">演出の速さ</div>
+      <div class="seg" id="opt-speed">
+        <button type="button" data-v="1">ふつう</button>
+        <button type="button" data-v="1.5">はやい</button>
+        <button type="button" data-v="2">とてもはやい</button>
+      </div>
+    </div>
+    <div class="opt">
+      <label class="lbl" for="opt-volume">音量</label>
+      <input type="range" id="opt-volume" min="0" max="1" step="0.05">
+      <div class="seg" id="opt-mute"><button type="button" data-v="toggle">ミュート</button></div>
+    </div>
+    <div class="row-actions"><button class="btn primary" type="button" data-close>もどる</button></div>
+  </div>
+</section>
+
+<div id="toasts" aria-live="polite"></div>
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>
