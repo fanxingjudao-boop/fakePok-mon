@@ -96,7 +96,7 @@ for (const enc of ['wild', 'ashstar', 'guardian']) {
   });
 }
 
-for (const [name, w, h] of [['phone-portrait', 390, 844], ['phone-landscape', 844, 390], ['desktop', 1280, 800], ['panel', 700, 900]]) {
+for (const [name, w, h] of [['phone-portrait', 390, 844], ['phone-landscape', 844, 390], ['desktop', 1280, 800], ['panel', 700, 900], ['small-landscape', 667, 375]]) {
   await check(`レイアウト ${name}: ボタン44px以上・横スクロールなし`, async () => {
     const { page, errors } = await openPage(w, h);
     await page.evaluate(() => { window.__hekikan.setSpeed(2); });
@@ -111,10 +111,15 @@ for (const [name, w, h] of [['phone-portrait', 390, 844], ['phone-landscape', 84
       const els = Array.from(document.querySelectorAll('#dock button'));
       const small = els.map((e) => e.getBoundingClientRect()).filter((r) => r.width > 0 && (r.width < 44 || r.height < 44)).length;
       const canvas = document.querySelector('#stage canvas')?.getBoundingClientRect();
-      return { count: els.length, small, overflow: document.documentElement.scrollWidth > window.innerWidth + 1, canvasW: canvas?.width ?? 0, layout: document.getElementById('app').className };
+      // スクロールせずに全体が見えている技ボタンの数
+      const dock = document.getElementById('dock').getBoundingClientRect();
+      const visible = Array.from(document.querySelectorAll('.panel .cmd')).map((e) => e.getBoundingClientRect())
+        .filter((r) => r.top >= dock.top && r.bottom <= dock.bottom).length;
+      return { count: els.length, small, visible, overflow: document.documentElement.scrollWidth > window.innerWidth + 1, canvasW: canvas?.width ?? 0, layout: document.getElementById('app').className };
     });
     await page.screenshot({ path: path.join(shots, `layout-${name}.png`) });
-    console.log(`   ${m.layout} / canvas幅 ${Math.round(m.canvasW)}px / ボタン ${m.count}個`);
+    console.log(`   ${m.layout} / canvas幅 ${Math.round(m.canvasW)}px / ボタン ${m.count}個 / スクロールなしで見える技 ${m.visible}個`);
+    assert.ok(m.visible >= 3, 'スクロールしないと技が3つも見えない');
     assert.equal(m.small, 0, '44px未満のボタンがある');
     assert.equal(m.overflow, false, '横スクロールが出る');
     assert.ok(m.canvasW > 200, '戦場が小さすぎる');

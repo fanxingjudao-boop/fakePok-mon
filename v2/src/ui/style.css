@@ -75,9 +75,9 @@ button:focus-visible, [tabindex]:focus-visible { outline: 3px solid var(--hekika
   overflow: auto;
   overscroll-behavior: contain;
 }
-.dock-head { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; align-items: center; gap: 6px 8px; }
-.dock-head .actor-chip { grid-row: 1; grid-column: 1 / -1; }
-.dock-head .rp { grid-row: 2; grid-column: 1; }
+.dock-head { display: flex; align-items: center; gap: 6px; }
+.dock-head .actor-chip { flex: 1; }
+.who-col { display: grid; gap: 4px; min-width: 0; overflow: hidden; }
 .actor-chip { display: flex; align-items: center; gap: 10px; min-width: 0; white-space: nowrap; }
 .actor-chip .who { display: flex; align-items: baseline; gap: 4px; min-width: 0; font-family: var(--display); font-weight: 800; }
 .actor-chip .nm { font-size: 22px; overflow: hidden; text-overflow: ellipsis; color: var(--side); }
@@ -212,6 +212,47 @@ button:focus-visible, [tabindex]:focus-visible { outline: 3px solid var(--hekika
 .memo-x { flex: none; align-self: center; width: 44px; height: 44px; margin: -8px 0; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-size: 20px; cursor: pointer; }
 .memo-x:hover { background: rgba(255, 255, 255, 0.06); color: var(--text); }
 .memo-k { flex: none; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; color: #062522; background: var(--hekikan); border-radius: 6px; padding: 1px 6px; }
+
+/* ---------- 詰め表示(スマホ横向きなど背の低い画面)---------- */
+#app.short { gap: 8px; padding-block: calc(4px + env(safe-area-inset-top, 0px)) calc(4px + env(safe-area-inset-bottom, 0px)); padding-inline: max(8px, env(safe-area-inset-left, 0px)) max(8px, env(safe-area-inset-right, 0px)); }
+#app.short #stage canvas { border-radius: 8px; }
+.compact #dock { gap: 6px; padding: 6px 8px 8px; }
+#memo-out { display: none; }
+#app.short.layout-side { grid-template-rows: minmax(0, 1fr) auto; }
+#app.short.layout-side #stage { grid-row: 1; grid-column: 1; }
+#app.short.layout-side #dock { grid-row: 1 / span 2; grid-column: 2; }
+#app.short.layout-side #memo-out:not(:empty) { display: block; grid-row: 2; grid-column: 1; }
+.compact .pt.lg { width: 40px; height: 40px; border-width: 2px; font-size: 18px; box-shadow: none; }
+.compact .actor-chip { gap: 8px; }
+.compact .actor-chip .nm { font-size: 18px; }
+.compact .actor-chip .sub { font-size: 13px; }
+.compact .rp { gap: 2px; }
+.compact .rp .pip { width: 6px; height: 11px; }
+.compact .rp .pip.mark { margin-right: 3px; }
+.compact .rp .val { font-size: 12px; min-width: 0; margin-left: 3px; color: var(--hekikan); font-weight: 700; }
+.compact .rp .max { display: none; }
+.compact .iconbtn { padding: 0 8px; font-size: 13px; }
+.compact .memo { font-size: 13px; line-height: 1.4; padding-block: 4px; }
+.compact .memo-t { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.compact .tab { min-height: 44px; min-width: 56px; padding: 0 12px; font-size: 15px; }
+.compact .cmds { gap: 6px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); }
+.compact .cmd { grid-template-columns: 32px minmax(0, 1fr); grid-template-areas: 'el name' 'el meta'; min-height: 52px; padding: 5px 8px; gap: 2px 8px; }
+.compact .cmd .el { width: 32px; height: 32px; font-size: 16px; border-radius: 8px; }
+.compact .cmd .name { font-size: 16px; }
+.compact .cmd .meta { font-size: 12px; gap: 4px; }
+.compact .cmd .meta .tag { font-size: 11.5px; padding: 0 6px; }
+/* 説明は省く(使えない理由だけは出す)。マウスでは title で読める */
+.compact .cmd[data-skill] .desc { display: none; }
+.compact .cmd[data-skill] .desc.why { display: block; grid-area: meta; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.compact .cmd[disabled] .meta { display: none; }
+.compact .cmd.target { grid-template-columns: 40px minmax(0, 1fr) auto; grid-template-areas: 'el name meta' 'el desc desc'; }
+.compact .cmd.target .pt.md { width: 40px; height: 40px; }
+.compact .cmd.target .desc { white-space: normal; }
+.compact .dmg { font-size: 16px; }
+.compact .panel-title { margin-bottom: 4px; font-size: 13px; }
+.compact .panel-title b { font-size: 16px; }
+.compact .log { display: none; }
+.compact .waiting { padding: 6px 4px; font-size: 14px; }
 
 /* ---------- 画面(タイトル・結果・遊び方・設定)---------- */
 .screen {

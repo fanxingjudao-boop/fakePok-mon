@@ -85,18 +85,39 @@ function closeOverlay(): void {
 /* ---------------- レイアウト(戦場を最大にする配置を選ぶ)---------------- */
 function layout(): void {
   const app = $('app');
-  const w = window.innerWidth - 32;
-  const h = window.innerHeight - 16;
-  const sideDock = Math.round(Math.min(420, Math.max(320, w * 0.32)));
-  const sideScale = Math.min((w - sideDock - 10) / 1280, h / 720);
+  // 背の低い画面(スマホ横向きなど)は「詰め」表示: 余白を減らし、記録帳を1画面に収める
+  const short = window.innerHeight < 560;
+  const w = window.innerWidth - (short ? 16 : 32);
+  const h = window.innerHeight - (short ? 8 : 16);
+  const sideDock = short
+    ? Math.round(Math.min(360, Math.max(280, w * 0.36)))
+    : Math.round(Math.min(420, Math.max(320, w * 0.32)));
+  const gap = short ? 8 : 10;
+  const sideScale = Math.min((w - sideDock - gap) / 1280, h / 720);
   // 下置きは記録帳に最低 320px の高さを確保できるときだけ(技の一覧をスクロールなしで見せたい)
   const bottomScale = Math.min(w / 1280, (h - 320) / 720);
   const side = sideScale > bottomScale;
-  app.className = side ? 'layout-side' : 'layout-bottom';
+  const dockH = side ? h : h - Math.min(w * 9 / 16, 720 * bottomScale) - gap;
+  const compact = short || dockH < 540;
+  app.className = `${side ? 'layout-side' : 'layout-bottom'}${compact ? ' compact' : ''}${short ? ' short' : ''}`;
+  // 横向きの詰め表示では、戦場の下の空きにメモ(ヒント)を出して記録帳を技の一覧に使う
+  dock.setCompact(compact, short && side ? $('memo-out') : null);
   app.style.setProperty('--dock-w', `${sideDock}px`);
   app.style.setProperty('--stage-max-h', `${Math.max(140, Math.round(720 * Math.max(bottomScale, 0.2)))}px`);
   game?.scale.refresh();
 }
+
+/* ---------------- 全画面(対応ブラウザのみ。横向きに固定できれば固定する)---------------- */
+const canFullscreen = typeof document !== 'undefined' && !!document.fullscreenEnabled;
+async function toggleFullscreen(): Promise<void> {
+  try {
+    if (document.fullscreenElement) { await document.exitFullscreen(); return; }
+    await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
+    const o = screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> };
+    await o.lock?.('landscape').catch(() => undefined);
+  } catch { /* 全画面が許可されていない環境(埋め込み表示など)では何もしない */ }
+}
+document.addEventListener('fullscreenchange', () => setTimeout(layout, 100));
 window.addEventListener('resize', layout);
 window.addEventListener('orientationchange', () => setTimeout(layout, 150));
 
@@ -195,10 +216,18 @@ $('enc-list').addEventListener('click', (e) => {
   if (b?.dataset.enc) void startBattle(b.dataset.enc);
 });
 $('btn-help').addEventListener('click', () => openOverlay('help'));
+// 設定 → 遊び方(詰め表示では記録帳の「?」を省くので、ここから開ける)。閉じると設定を開く前の画面に戻る
+$('btn-settings-help').addEventListener('click', () => { const back = returnTo; show('help'); returnTo = back; });
 $('btn-settings').addEventListener('click', () => openOverlay('settings'));
 document.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', closeOverlay));
 dock.onOpenHelp = () => openOverlay('help');
 dock.onOpenSettings = () => openOverlay('settings');
+dock.canFullscreen = canFullscreen;
+dock.onToggleFullscreen = () => { void toggleFullscreen(); };
+for (const b of document.querySelectorAll<HTMLButtonElement>('[data-fullscreen]')) {
+  b.hidden = !canFullscreen;
+  b.addEventListener('click', () => { void toggleFullscreen(); });
+}
 
 /* ---------------- 結果 ---------------- */
 function renderResult(r: BattleResult): void {

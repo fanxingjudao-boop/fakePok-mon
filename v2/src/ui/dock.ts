@@ -51,6 +51,8 @@ export class Dock {
   onToggleAuto?: (v: boolean) => void;
   onOpenSettings?: () => void;
   onOpenHelp?: () => void;
+  onToggleFullscreen?: () => void;
+  canFullscreen = false;
 
   private b: BattleState | null = null;
   private actor: Unit | null = null;
@@ -63,7 +65,11 @@ export class Dock {
   private resolveFn: ((a: Action) => void) | null = null;
   private unlisten: (() => void) | null = null;
   private memoHtml = '';
-  private boardOpen = true;
+  /** 戦況の開閉(null = 画面の大きさに合わせる: 詰め表示では閉じる) */
+  private boardOpen: boolean | null = null;
+  private compact = false;
+  /** 記録帳の外にメモを出す場所(横向きの詰め表示では戦場の下の空きに出して、技の一覧を広く取る) */
+  private memoOut: HTMLElement | null = null;
   private readonly root: HTMLElement;
   private readonly input: InputHub;
 
@@ -100,11 +106,30 @@ export class Dock {
   /** 記録帳のメモ欄(ヒントや出来事)。戦場の上に重ねないので視界を遮らない */
   memo(html: string, kind: 'tip' | 'info' | 'warn' = 'info'): void {
     this.memoHtml = `<div class="memo ${kind}">${kind === 'tip' ? '<span class="memo-k">ヒント</span>' : ''}<span class="memo-t">${html}</span><button class="memo-x" type="button" data-act="memo-x" aria-label="メモを閉じる">×</button></div>`;
-    const el = this.root.querySelector('.memo-slot');
-    if (el) el.innerHTML = this.memoHtml;
+    this.paintMemo();
   }
 
-  clearMemo(): void { this.memoHtml = ''; }
+  clearMemo(): void { this.memoHtml = ''; this.paintMemo(); }
+
+  private paintMemo(): void {
+    const inner = this.root.querySelector('.memo-slot');
+    if (inner) inner.innerHTML = this.memoOut ? '' : this.memoHtml;
+    if (this.memoOut) this.memoOut.innerHTML = this.memoHtml;
+  }
+
+  /** 背の低い画面向けの詰め表示(説明文を1行に、戦況は既定で閉じる) */
+  setCompact(v: boolean, memoOut: HTMLElement | null = null): void {
+    if (this.compact === v && this.memoOut === memoOut) return;
+    if (this.memoOut && this.memoOut !== memoOut) this.memoOut.innerHTML = '';
+    if (memoOut && !memoOut.dataset.wired) {
+      memoOut.dataset.wired = '1';
+      memoOut.addEventListener('click', (e) => this.onClick(e));
+    }
+    this.compact = v;
+    this.memoOut = memoOut;
+    if (this.b) this.draw();
+    else this.paintMemo();
+  }
 
   setLog(text: string): void {
     this.log = text;
@@ -158,17 +183,21 @@ export class Dock {
       <div class="dock-head">
         <div class="actor-chip" style="--side:${a ? sideColor(a) : 'var(--faint)'}">
           ${a ? portrait(a, 'lg') : '<span class="pt lg"></span>'}
-          <span class="who"><span class="nm">${a ? esc(a.name) : '—'}</span><span class="sub">${a ? (a.side === 'enemy' ? 'の行動' : 'の番') : ''}</span></span>
-        </div>
-        <div class="rp" role="img" aria-label="共鳴ゲージ ${b.rp}/${RP_MAX}">
-          ${Array.from({ length: RP_MAX }, (_, i) => `<span class="pip${i < b.rp ? ' on' : ''}${i === 4 ? ' mark' : ''}"></span>`).join('')}
-          <span class="val num">${b.rp}/${RP_MAX}</span>
+          <span class="who-col">
+            <span class="who"><span class="nm">${a ? esc(a.name) : '—'}</span><span class="sub">${a ? (a.side === 'enemy' ? 'の行動' : 'の番') : ''}</span></span>
+            <span class="rp" role="img" aria-label="共鳴ゲージ ${b.rp}/${RP_MAX}">
+              ${Array.from({ length: RP_MAX }, (_, i) => `<span class="pip${i < b.rp ? ' on' : ''}${i === 4 ? ' mark' : ''}"></span>`).join('')}
+              <span class="val num">${b.rp}<span class="max">/${RP_MAX}</span></span>
+            </span>
+          </span>
         </div>
         <button class="iconbtn" type="button" data-act="auto" aria-pressed="${this.auto}" title="味方の行動をAIにまかせる">おまかせ</button>
-        <button class="iconbtn" type="button" data-act="settings">設定</button>
-        <button class="iconbtn" type="button" data-act="help" aria-label="遊び方">?</button>
+        ${this.canFullscreen && !this.compact ? '<button class="iconbtn" type="button" data-act="fullscreen" aria-label="全画面" title="全画面">⛶</button>' : ''}
+        <button class="iconbtn" type="button" data-act="settings" aria-label="設定" title="設定">${this.compact ? '⚙' : '設定'}</button>
+        ${this.compact ? '' : '<button class="iconbtn" type="button" data-act="help" aria-label="遊び方">?</button>'}
       </div>`;
-    this.root.innerHTML = `${head}<div class="memo-slot" aria-live="polite">${this.memoHtml}</div><div class="panel">${this.panelHtml()}</div><div class="log" aria-live="polite">${esc(this.log)}</div>${this.boardHtml()}`;
+    this.root.innerHTML = `${head}<div class="memo-slot" aria-live="polite">${this.memoOut ? '' : this.memoHtml}</div><div class="panel">${this.panelHtml()}</div><div class="log" aria-live="polite">${esc(this.log)}</div>${this.boardHtml()}`;
+    if (this.memoOut) this.memoOut.innerHTML = this.memoHtml;
   }
 
   private panelHtml(): string {
@@ -201,15 +230,16 @@ export class Dock {
     const cost = s.cost ? `<span class="tag cost num">RP${s.cost}</span>` : '';
     const item = s.item && this.b ? `<span class="tag num">残${this.b.items[s.item]}</span>` : '';
     const desc = o.usable ? esc(s.desc) : `<span style="color:var(--danger)">${esc(o.reason ?? '')}</span> ・ ${esc(s.desc)}`;
+    const title = esc(`${s.name}: ${s.desc}${o.usable ? '' : `(${o.reason ?? ''})`}`);
     const nx = this.nextTurnAfter(s.weight);
     const speed = `<span class="tag ${s.weight <= 0.8 ? 'fast' : s.weight >= 1.2 ? 'heavy' : ''}" title="この技を使った後、次に自分の番が来る順番">次の番 ${nx > 0 ? `${nx}番目` : '—'}</span>`;
     const members = s.category === 'resonance' && s.partners && this.b
       ? `<span class="members">${s.partners.map((m) => { const u = this.b?.units.find((x) => x.defId === m); return u ? portrait(u, 'sm') : ''; }).join('')}</span>` : '';
-    return `<button class="cmd${s.category === 'resonance' ? ' resonance' : ''}" type="button" data-skill="${s.id}" data-key="${key}" ${o.usable ? '' : 'disabled'}>
+    return `<button class="cmd${s.category === 'resonance' ? ' resonance' : ''}" type="button" data-skill="${s.id}" data-key="${key}" title="${title}" ${o.usable ? '' : 'disabled'}>
         <span class="el" style="background:${s.elements.length > 1 ? 'var(--hekikan)' : `var(--el-${el})`}">${esc(elLabel)}</span>
         <span class="name">${key <= 9 ? `<kbd>${key}</kbd>` : ''}${esc(s.name)}${members}</span>
         <span class="meta">${power}${cost}${item}${speed}</span>
-        <span class="desc">${desc}</span>
+        <span class="desc${o.usable ? '' : ' why'}">${desc}</span>
       </button>`;
   }
 
@@ -301,7 +331,8 @@ export class Dock {
         <div class="bar"><i style="width:${pct}%"></i></div>
         <div class="info num">${u.hp}/${u.maxHp} ${esc(st)}</div></div>`;
     }).join('');
-    return `<details class="board"${this.boardOpen ? ' open' : ''}><summary>戦況(行動順・敵の予告・HP)</summary>
+    const open = this.boardOpen ?? !this.compact;
+    return `<details class="board"${open ? ' open' : ''}><summary>戦況(行動順・敵の予告・HP)</summary>
       <h3>行動順 <span class="legend"><i class="ally"></i>味方 <i class="enemy"></i>敵 <i class="player"></i>ユウ</span></h3><div class="tl">${chips}</div>${fieldLine}<h3>敵</h3>${eRows}<h3>仲間</h3>${aRows}</details>`;
   }
 
@@ -313,7 +344,8 @@ export class Dock {
     if (act === 'auto') { this.auto = !this.auto; t.setAttribute('aria-pressed', String(this.auto)); this.onToggleAuto?.(this.auto); return; }
     if (act === 'settings') { this.onOpenSettings?.(); return; }
     if (act === 'help') { this.onOpenHelp?.(); return; }
-    if (act === 'memo-x') { this.memoHtml = ''; const m = this.root.querySelector('.memo-slot'); if (m) m.innerHTML = ''; return; }
+    if (act === 'fullscreen') { this.onToggleFullscreen?.(); return; }
+    if (act === 'memo-x') { this.clearMemo(); return; }
     if (this.phase !== 'choose' || !this.b || !this.actor) return;
     if (act === 'back') { this.back(); return; }
     if (t.dataset.cat) { this.cat = t.dataset.cat as SkillCategory; this.draw(); this.focusFirst(); return; }
