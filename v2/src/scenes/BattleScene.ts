@@ -7,7 +7,7 @@ import type { AudioEngine, SfxId } from '../audio/engine.ts';
 import type { Action, BattleEvent, BattleState, Guard, Skill, Timing, Unit } from '../core/types.ts';
 import {
   activeAllies, activeEnemies, createBattle, fieldForecast, intentForecast, isActive, isTimedSkill,
-  performAction, performEnemy, previewTimeline, startTurn, unit,
+  performAction, performEnemy, previewTimeline, startTurn, unit, type BattleSetup,
 } from '../core/battle.ts';
 import { chooseAllyAction } from '../core/ai.ts';
 import { ELEMENT_NAME, RP_MAX } from '../core/rules.ts';
@@ -20,7 +20,13 @@ import type { Dock } from '../ui/dock.ts';
 import type { InputHub } from '../input.ts';
 import type { Settings } from '../settings.ts';
 
-export interface BattleResult { encounterId: string; outcome: 'win' | 'lose'; stats: BattleState['stats'] }
+export interface BattleResult {
+  encounterId: string;
+  outcome: 'win' | 'lose';
+  stats: BattleState['stats'];
+  /** 戦闘の最終状態(フィールドへHP・道具・経験値を持ち帰る) */
+  final: BattleState;
+}
 export interface BattleHost {
   settings: Settings;
   audio: AudioEngine;
@@ -40,11 +46,12 @@ const C = {
   ally: 0x7cc4ff, enemy: 0xff6b78, player: 0xffc76a, hekikan: col(HEKIKAN), danger: 0xff5d6c,
   ink: 0x0b171b, panel: 0x102429, line: 0x28505a, text: 0xe6f2ef, gold: 0xffc76a, ok: 0x7be38a,
 };
-const ALLY_POS = [{ x: 955, y: 362 }, { x: 1112, y: 482 }, { x: 950, y: 612 }];
+// 文字を大きくした分、ユニットの情報欄(名前・HP・盾・状態)が画面下にはみ出さないよう少し上に置く
+const ALLY_POS = [{ x: 955, y: 345 }, { x: 1110, y: 462 }, { x: 950, y: 580 }];
 const ENEMY_POS: Record<number, { x: number; y: number }[]> = {
-  1: [{ x: 330, y: 612 }],
-  2: [{ x: 300, y: 420 }, { x: 300, y: 612 }],
-  3: [{ x: 320, y: 358 }, { x: 165, y: 482 }, { x: 330, y: 615 }],
+  1: [{ x: 330, y: 592 }],
+  2: [{ x: 300, y: 400 }, { x: 300, y: 580 }],
+  3: [{ x: 320, y: 340 }, { x: 165, y: 460 }, { x: 330, y: 580 }],
 };
 const PLAYER_POS = { x: 1210, y: 676 };
 const BASE_SIZE = 172;
@@ -63,11 +70,10 @@ interface UView {
   sel: Phaser.GameObjects.Graphics;
   idle: Phaser.Tweens.Tween | null;
   shownHp: number;
+  /** 次に何番目に動くか(今 / 1 / 2 …) */
+  badge: Phaser.GameObjects.Container;
 }
 
-/** ユーザー素材(src/assets/user/)。ビルド時に存在するファイルだけが同梱される */
-const USER_ART = import.meta.glob('../assets/user/**/*.{png,webp,jpg}', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
-const userArtUrl = (file: string): string | undefined => USER_ART[`../assets/user/${file}`];
 
 export class BattleScene extends Phaser.Scene {
   static host: BattleHost;
@@ -76,6 +82,7 @@ export class BattleScene extends Phaser.Scene {
   private b!: BattleState;
   private encounterId = 'wild';
   private seed = 1;
+  private setup: BattleSetup = {};
   private views = new Map<string, UView>();
   private tlLayer!: Phaser.GameObjects.Container;
   private hudTop!: Phaser.GameObjects.Container;
@@ -89,12 +96,15 @@ export class BattleScene extends Phaser.Scene {
   private previewWeight: number | null = null;
   private highlighted: string[] = [];
   private curSkill: Skill | null = null;
+  /** 行動中のユニットに出す「今」の印(足元の輪とセット) */
+  private actorMark: Phaser.GameObjects.Container | null = null;
 
   constructor() { super('battle'); }
 
-  init(data: { encounterId: string; seed: number }): void {
+  init(data: { encounterId: string; seed: number; setup?: BattleSetup }): void {
     this.encounterId = data.encounterId;
     this.seed = data.seed;
+    this.setup = data.setup ?? {};
     this.alive = true;
     this.views = new Map();
     this.previewWeight = null;
@@ -107,11 +117,10 @@ export class BattleScene extends Phaser.Scene {
 
   /* ---------------- 読み込み ---------------- */
   preload(): void {
-    // ユーザーが用意した絵があれば使う。無ければ手続き生成の仮絵(実行時に存在確認の通信はしない)
+    // ユーザー素材(下ごしらえ済みの透過WebP)があれば使う。無ければ手続き生成の仮絵
     for (const [key, a] of Object.entries(ART)) {
       const k = `user_${key}`;
-      const url = userArtUrl(a.file);
-      if (url && !this.textures.exists(k)) this.load.image(k, url);
+      if (a.img && !this.textures.exists(k)) this.load.image(k, a.img);
     }
   }
 
@@ -146,10 +155,14 @@ export class BattleScene extends Phaser.Scene {
     return this.textures.exists(`user_${art}`) ? `user_${art}` : `art_${art}`;
   }
 
+  private isUserArt(defId: string): boolean {
+    return this.textures.exists(`user_${unitDef(defId).art}`);
+  }
+
   /* ---------------- 構築 ---------------- */
   create(): void {
     this.ensureTextures();
-    this.b = createBattle(this.encounterId, this.seed);
+    this.b = createBattle(this.encounterId, this.seed, this.setup);
     const enc = ENCOUNTERS[this.encounterId];
 
     this.add.image(W / 2, H / 2, `bg_${enc.backdrop}`).setDisplaySize(W, H);
@@ -169,12 +182,14 @@ export class BattleScene extends Phaser.Scene {
     // 巡環士ユウ(狙われない。行動順に並ぶ)
     const p = this.b.units.find((u) => u.side === 'player') as Unit;
     const emb = this.add.image(PLAYER_POS.x, PLAYER_POS.y, this.artKey(p.defId)).setOrigin(0.5, 1);
-    emb.setScale(84 / Math.max(emb.width, emb.height)).setDepth(8);
-    const pname = this.add.text(PLAYER_POS.x, PLAYER_POS.y + 4, '巡環士ユウ', this.style(20, '#ffc76a')).setOrigin(0.5, 0).setDepth(8);
+    // ユーザー素材(全身の立ち絵)は大きめに、仮の紋章は小さめに
+    emb.setScale((this.isUserArt(p.defId) ? 124 : 84) / Math.max(emb.width, emb.height)).setDepth(8);
+    const pname = this.add.text(PLAYER_POS.x, PLAYER_POS.y + 2, 'ユウ', this.style(26, '#ffc76a')).setOrigin(0.5, 0).setDepth(8);
     this.views.set(p.uid, {
       uid: p.uid, sprite: emb, x: PLAYER_POS.x, y: PLAYER_POS.y, scale: emb.scale,
       hud: this.add.container(0, 0, [pname]), hpBar: this.add.graphics(), hpText: pname, pips: this.add.container(0, 0),
       status: pname, intent: null, aura: this.add.graphics(), sel: this.add.graphics(), idle: null, shownHp: 1,
+      badge: this.add.container(PLAYER_POS.x - 58, PLAYER_POS.y - 96).setDepth(55),
     });
 
     // 味方・敵
@@ -185,7 +200,9 @@ export class BattleScene extends Phaser.Scene {
     // 上部の情報(行動順・場・共鳴ゲージ)と下部の実況
     this.tlLayer = this.add.container(0, 0).setDepth(50);
     this.hudTop = this.add.container(0, 0).setDepth(50);
-    this.logText = this.add.text(W / 2, H - 22, '', this.style(24, '#e6f2ef')).setOrigin(0.5, 1).setDepth(50);
+    // 実況は敵と味方の情報欄の間(画面下中央)に、折り返して出す
+    this.logText = this.add.text(W / 2 + 10, H - 14, '', { ...this.style(27, '#ffffff', 7), align: 'center', wordWrap: { width: 400, useAdvancedWrap: true } })
+      .setOrigin(0.5, 1).setDepth(50);
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { this.alive = false; this.host.dock.cancel(); });
     this.refreshAll();
@@ -199,7 +216,7 @@ export class BattleScene extends Phaser.Scene {
   private makeUnitView(u: Unit, pos: { x: number; y: number }, flip: boolean): void {
     const art = ART[unitDef(u.defId).art];
     const sprite = this.add.image(pos.x, pos.y, this.artKey(u.defId)).setOrigin(0.5, 0.96).setFlipX(flip);
-    const box = BASE_SIZE * art.scale;
+    const box = BASE_SIZE * (this.isUserArt(u.defId) ? art.imgScale ?? art.scale : art.scale);
     const scale = box / Math.max(sprite.width, sprite.height);
     sprite.setScale(scale).setDepth(10 + pos.y / 100);
     sprite.setInteractive({ useHandCursor: true, pixelPerfect: false });
@@ -210,13 +227,15 @@ export class BattleScene extends Phaser.Scene {
     const aura = this.add.graphics().setDepth(9.5 + pos.y / 100);
     const sel = this.add.graphics().setDepth(9.4 + pos.y / 100);
 
-    const hud = this.add.container(pos.x, pos.y + 8).setDepth(30 + pos.y / 100);
-    const name = this.add.text(-86, 0, u.name, this.style(21, u.side === 'ally' ? '#cfe9ff' : '#ffd6da', 5)).setOrigin(0, 0);
+    const hud = this.add.container(pos.x, pos.y + 4).setDepth(30 + pos.y / 100);
+    // 情報欄: 1段目 名前(左)・HP(右) / 2段目 HPバー / 3段目 盾と弱点 / 4段目 状態
+    const name = this.add.text(-100, -2, u.name, this.style(26, u.side === 'ally' ? '#cfe9ff' : '#ffd6da', 6)).setOrigin(0, 0);
     const hpBar = this.add.graphics();
-    const hpText = this.add.text(86, 2, '', this.style(18, '#e6f2ef', 4)).setOrigin(1, 0);
-    const pips = this.add.container(-86, 50);
-    const status = this.add.text(-86, u.side === 'enemy' ? 76 : 50, '', this.style(17, '#ffc76a', 4)).setOrigin(0, 0);
+    const hpText = this.add.text(122, 1, '', this.style(22, '#ffffff', 6)).setOrigin(1, 0);
+    const pips = this.add.container(-100, 58);
+    const status = this.add.text(-100, u.side === 'enemy' ? 90 : 58, '', this.style(22, '#ffc76a', 5)).setOrigin(0, 0);
     hud.add([hpBar, name, hpText, pips, status]);
+    const badge = this.add.container(pos.x - 126, pos.y + 20).setDepth(55);
 
     const idle = this.tweens.add({
       targets: sprite, scaleY: scale * 1.025, scaleX: scale * 0.99, duration: 1300 + (pos.y % 7) * 90,
@@ -224,7 +243,7 @@ export class BattleScene extends Phaser.Scene {
     });
     this.views.set(u.uid, {
       uid: u.uid, sprite, x: pos.x, y: pos.y, scale, hud, hpBar, hpText, pips, status,
-      intent: null, aura, sel, idle, shownHp: u.hp,
+      intent: null, aura, sel, idle, shownHp: u.hp, badge,
     });
   }
 
@@ -243,12 +262,12 @@ export class BattleScene extends Phaser.Scene {
     const gone = !isActive(u);
     v.hud.setAlpha(gone ? 0.35 : 1);
     // HPバー
-    const w = 172;
+    const w = 218;
     const pct = Math.max(0, u.hp / u.maxHp);
     v.hpBar.clear();
-    v.hpBar.fillStyle(0x000000, 0.55).fillRoundedRect(-88, 28, w + 4, 16, 8);
+    v.hpBar.fillStyle(0x000000, 0.6).fillRoundedRect(-100, 32, w + 4, 20, 10);
     const hpCol = u.side === 'enemy' ? C.enemy : pct > 0.5 ? C.ok : pct > 0.25 ? C.gold : C.danger;
-    if (pct > 0) v.hpBar.fillStyle(hpCol, 1).fillRoundedRect(-86, 30, Math.max(10, w * pct), 12, 6);
+    if (pct > 0) v.hpBar.fillStyle(hpCol, 1).fillRoundedRect(-98, 34, Math.max(12, w * pct), 16, 8);
     v.hpText.setText(u.side === 'ally' ? `${u.hp}/${u.maxHp}` : `${Math.round(pct * 100)}%`);
     // 盾と弱点(敵のみ)
     v.pips.removeAll(true);
@@ -256,21 +275,21 @@ export class BattleScene extends Phaser.Scene {
       const g = this.add.graphics();
       for (let i = 0; i < u.shieldMax; i++) {
         const on = !u.broken && i < u.shield;
-        g.fillStyle(on ? C.gold : 0x2a3a3e, 1).fillRoundedRect(i * 19, 0, 15, 17, 4);
-        g.lineStyle(2, 0x08110f, 1).strokeRoundedRect(i * 19, 0, 15, 17, 4);
+        g.fillStyle(on ? C.gold : 0x2a3a3e, 1).fillRoundedRect(i * 22, 0, 18, 24, 5);
+        g.lineStyle(2, 0x08110f, 1).strokeRoundedRect(i * 22, 0, 18, 24, 5);
       }
       v.pips.add(g);
-      let x = u.shieldMax * 19 + 10;
+      let x = u.shieldMax * 22 + 10;
       for (const wk of u.weaknesses) {
         const known = u.revealed.includes(wk);
         const c = this.add.graphics();
-        c.fillStyle(known ? col(ELEMENT_COLOR[wk]) : 0x24343a, 1).fillCircle(x + 11, 9, 12);
-        c.lineStyle(2, 0x08110f, 1).strokeCircle(x + 11, 9, 12);
-        const t = this.add.text(x + 11, 9, known ? ELEMENT_NAME[wk] : '?', this.style(15, known ? '#0b171b' : '#8fb0aa', 0)).setOrigin(0.5);
+        c.fillStyle(known ? col(ELEMENT_COLOR[wk]) : 0x24343a, 1).fillCircle(x + 15, 12, 15);
+        c.lineStyle(2, 0x08110f, 1).strokeCircle(x + 15, 12, 15);
+        const t = this.add.text(x + 15, 12, known ? ELEMENT_NAME[wk] : '?', this.style(19, known ? '#0b171b' : '#8fb0aa', 0)).setOrigin(0.5);
         v.pips.add([c, t]);
-        x += 28;
+        x += 34;
       }
-      if (u.broken) v.pips.add(this.add.text(0, -2, 'BREAK', this.style(19, '#ffc76a', 5)).setOrigin(0, 0));
+      if (u.broken) v.pips.add(this.add.text(0, -2, 'BREAK', this.style(24, '#ffc76a', 6)).setOrigin(0, 0));
     }
     const st = [
       u.status.burn ? '燃焼' : '', u.status.regen ? '再生' : '', u.status.mist ? '霧' : '',
@@ -354,10 +373,10 @@ export class BattleScene extends Phaser.Scene {
 
   /** 予告の吹き出し。(x, y) は左端・縦中央。幅は getData('w') */
   private bubble(x: number, y: number, l1: string, l2: string, color: number, danger: boolean): Phaser.GameObjects.Container {
-    const t1 = this.add.text(14, l2 ? -25 : -12, l1, this.style(21, '#ffffff', 0)).setOrigin(0, 0);
-    const t2 = this.add.text(14, 1, l2, this.style(18, danger ? '#ffb3ba' : '#cfe3de', 0)).setOrigin(0, 0);
-    const w = Math.max(t1.width, t2.width) + 28;
-    const h = l2 ? 56 : 32;
+    const t1 = this.add.text(16, l2 ? -32 : -16, l1, this.style(27, '#ffffff', 0)).setOrigin(0, 0);
+    const t2 = this.add.text(16, 2, l2, this.style(23, danger ? '#ffb3ba' : '#cfe3de', 0)).setOrigin(0, 0);
+    const w = Math.max(t1.width, t2.width) + 32;
+    const h = l2 ? 70 : 40;
     const g = this.add.graphics();
     g.fillStyle(0x0b171b, 0.9).fillRoundedRect(0, -h / 2, w, h, 10);
     g.lineStyle(3, color, 1).strokeRoundedRect(0, -h / 2, w, h, 10);
@@ -371,60 +390,122 @@ export class BattleScene extends Phaser.Scene {
   private refreshTimeline(): void {
     this.tlLayer.removeAll(true);
     const b = this.b;
-    const label = this.add.text(28, 12, '行動順', this.style(18, '#8fb0aa', 4));
-    this.tlLayer.add(label);
     const now = b.actor ? unit(b, b.actor) : null;
-    let x = 64;
-    if (now) { this.tlIcon(now, x, 70, 34, true, false); x += 56; }
-    const tl = previewTimeline(b, 9, this.previewWeight ?? undefined);
+    const tl = previewTimeline(b, 8, this.previewWeight ?? undefined);
     const projIdx = this.previewWeight !== null && now ? tl.findIndex((e) => e.uid === now.uid) : -1;
+    // 帯(読みやすいように暗い下地を敷く)
+    const g = this.add.graphics();
+    g.fillStyle(0x0b171b, 0.72).fillRoundedRect(10, 8, 88 + 8 * 82 + 18, 142, 16);
+    this.tlLayer.add(g);
+    this.tlLayer.add(this.add.text(24, 16, '行動順  左から順に動く ▶', this.style(20, '#cfe3de', 4)));
+    let x = 58;
+    if (now) { this.tlIcon(now, x, 82, 38, true, false, '', '今'); }
+    x = 58 + 88;
     tl.forEach((e, i) => {
       const u = unit(b, e.uid);
-      this.tlIcon(u, x + 26, 70, 25, false, i === projIdx, e.recover ? '休' : e.charge ? '溜' : '');
-      x += 58;
+      this.tlIcon(u, x, 82, 32, false, i === projIdx, e.recover ? '休' : e.charge ? '溜' : '', String(i + 1));
+      x += 82;
     });
+    // 凡例
+    const lg = [['味方', '#7cc4ff'], ['敵', '#ff6b78'], ['ユウ', '#ffc76a']] as const;
+    let lx = 330;
+    for (const [t, c] of lg) {
+      const d = this.add.graphics().lineStyle(4, col(c), 1).strokeCircle(lx, 28, 9);
+      const tx = this.add.text(lx + 14, 28, t, this.style(18, c, 4)).setOrigin(0, 0.5);
+      this.tlLayer.add([d, tx]);
+      lx += tx.width + 42;
+    }
+    this.refreshOrderBadges(now, tl.map((e) => e.uid));
   }
 
-  private tlIcon(u: Unit, x: number, y: number, r: number, now: boolean, proj: boolean, badge = ''): void {
+  /** 各ユニットの頭の横に「次に何番目に動くか」を出し、行動中のユニットに印を付ける */
+  private refreshOrderBadges(now: Unit | null, order: string[]): void {
+    for (const v of this.views.values()) {
+      v.badge.removeAll(true);
+      const u = unit(this.b, v.uid);
+      if (!isActive(u) || (now && now.uid === u.uid)) continue;
+      const idx = order.indexOf(u.uid);
+      if (idx < 0) continue;
+      const ring = u.side === 'ally' ? C.ally : u.side === 'enemy' ? C.enemy : C.player;
+      const g = this.add.graphics();
+      g.fillStyle(0x0b171b, 0.92).fillCircle(0, 0, 20);
+      g.lineStyle(4, ring, 1).strokeCircle(0, 0, 20);
+      const t = this.add.text(0, 1, String(idx + 1), this.style(26, '#ffffff', 0)).setOrigin(0.5);
+      v.badge.add([g, t]);
+    }
+    this.actorMark?.destroy();
+    this.actorMark = null;
+    if (!now) return;
+    const v = this.views.get(now.uid);
+    if (!v) return;
+    const rw = Math.min(260, v.sprite.displayWidth * 0.9);
+    const ring = this.add.graphics();
+    ring.lineStyle(5, C.hekikan, 0.95).strokeEllipse(v.x, v.y - 4, rw, rw * 0.24);
+    ring.fillStyle(C.hekikan, 0.16).fillEllipse(v.x, v.y - 4, rw, rw * 0.24);
+    ring.setDepth(9.3 + v.y / 100);
+    // 行動順の番号と同じ場所に「今」を出す(タイムラインの「今」と同じ印)。頭上は隣の情報欄と重なるので使わない
+    const glow = this.add.graphics();
+    glow.fillStyle(C.hekikan, 0.3).fillCircle(0, 0, 30);
+    const disc = this.add.graphics();
+    disc.fillStyle(C.hekikan, 1).fillCircle(0, 0, 23);
+    disc.lineStyle(3, 0x08110f, 1).strokeCircle(0, 0, 23);
+    const label = this.add.text(0, 1, '今', this.style(26, '#0b171b', 0)).setOrigin(0.5);
+    const mark = this.add.container(v.badge.x, v.badge.y, [glow, disc, label]).setDepth(56);
+    this.tweens.add({ targets: glow, scale: 1.35, alpha: 0.2, duration: 520, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    const holder = this.add.container(0, 0, [ring]);
+    holder.setDepth(9.3 + v.y / 100);
+    mark.once(Phaser.GameObjects.Events.DESTROY, () => holder.destroy());
+    this.actorMark = mark;
+  }
+
+  private tlIcon(u: Unit, x: number, y: number, r: number, now: boolean, proj: boolean, badge = '', num = ''): void {
     const ring = u.side === 'ally' ? C.ally : u.side === 'enemy' ? C.enemy : C.player;
     const g = this.add.graphics();
     if (proj) g.fillStyle(C.hekikan, 0.35).fillCircle(x, y, r + 10);
-    g.fillStyle(0x0b171b, 0.92).fillCircle(x, y, r);
-    g.lineStyle(now ? 5 : 3, proj ? C.hekikan : ring, 1).strokeCircle(x, y, r);
+    if (now) g.fillStyle(C.hekikan, 0.3).fillCircle(x, y, r + 8);
+    g.fillStyle(0x0b171b, 0.95).fillCircle(x, y, r);
+    g.lineStyle(now ? 6 : 4, proj ? C.hekikan : ring, 1).strokeCircle(x, y, r);
     const img = this.add.image(x, y + 2, this.artKey(u.defId)).setFlipX(u.side === 'enemy');
-    img.setScale((r * 1.7) / Math.max(img.width, img.height));
+    img.setScale((r * 1.75) / Math.max(img.width, img.height));
     this.tlLayer.add([g, img]);
-    if (now) this.tlLayer.add(this.add.text(x, y + r + 4, '今', this.style(16, '#e6f2ef', 4)).setOrigin(0.5, 0));
-    if (proj) this.tlLayer.add(this.add.text(x, y - r - 6, '次の番', this.style(15, '#3ee0c8', 4)).setOrigin(0.5, 1));
+    if (num) {
+      const nb = this.add.graphics();
+      const nx = x - r * 0.72;
+      const ny = y - r * 0.72;
+      nb.fillStyle(now ? C.hekikan : 0xe6f2ef, 1).fillCircle(nx, ny, 14);
+      nb.lineStyle(2, 0x08110f, 1).strokeCircle(nx, ny, 14);
+      this.tlLayer.add([nb, this.add.text(nx, ny + 1, num, this.style(now ? 17 : 19, '#0b171b', 0)).setOrigin(0.5)]);
+    }
+    this.tlLayer.add(this.add.text(x, y + r + 4, u.side === 'player' ? 'ユウ' : u.name, this.style(15, '#cfe3de', 4)).setOrigin(0.5, 0));
+    if (proj) this.tlLayer.add(this.add.text(x, y - r - 4, '次の番', this.style(18, '#3ee0c8', 4)).setOrigin(0.5, 1));
     if (badge) {
-      const bg = this.add.graphics().fillStyle(badge === '溜' ? C.danger : C.gold, 1).fillCircle(x + r * 0.75, y + r * 0.7, 11);
-      this.tlLayer.add([bg, this.add.text(x + r * 0.75, y + r * 0.7, badge, this.style(13, '#0b171b', 0)).setOrigin(0.5)]);
+      const bg = this.add.graphics().fillStyle(badge === '溜' ? C.danger : C.gold, 1).fillCircle(x + r * 0.75, y + r * 0.7, 14);
+      this.tlLayer.add([bg, this.add.text(x + r * 0.75, y + r * 0.7, badge, this.style(17, '#0b171b', 0)).setOrigin(0.5)]);
     }
   }
 
   private refreshTop(): void {
     this.hudTop.removeAll(true);
     const f = fieldForecast(this.b);
-    const x = W - 250;
+    const x = W - 290;
     const g = this.add.graphics();
-    g.fillStyle(0x0b171b, 0.78).fillRoundedRect(x - 16, 14, 250, 118, 14);
-    g.fillStyle(col(ELEMENT_COLOR[f.now]), 1).fillCircle(x + 26, 50, 26);
-    g.lineStyle(3, 0x08110f, 1).strokeCircle(x + 26, 50, 26);
+    g.fillStyle(0x0b171b, 0.8).fillRoundedRect(x - 16, 8, 296, 142, 16);
+    g.fillStyle(col(ELEMENT_COLOR[f.now]), 1).fillCircle(x + 30, 48, 30);
+    g.lineStyle(3, 0x08110f, 1).strokeCircle(x + 30, 48, 30);
     this.hudTop.add(g);
-    this.hudTop.add(this.add.text(x + 26, 50, ELEMENT_NAME[f.now], this.style(28, '#0b171b', 0)).setOrigin(0.5));
-    this.hudTop.add(this.add.text(x + 62, 26, `場: ${ELEMENT_NAME[f.now]}`, this.style(22)));
-    this.hudTop.add(this.add.text(x + 62, 54, `あと${f.inTurns}手 → ${ELEMENT_NAME[f.next]}`, this.style(17, '#8fb0aa', 4)));
+    this.hudTop.add(this.add.text(x + 30, 48, ELEMENT_NAME[f.now], this.style(32, '#0b171b', 0)).setOrigin(0.5));
+    this.hudTop.add(this.add.text(x + 72, 16, `場: ${ELEMENT_NAME[f.now]}`, this.style(28)));
+    this.hudTop.add(this.add.text(x + 72, 50, `あと${f.inTurns}手 → ${ELEMENT_NAME[f.next]}`, this.style(21, '#cfe3de', 4)));
     // 共鳴ゲージ
     const gg = this.add.graphics();
     for (let i = 0; i < RP_MAX; i++) {
       const on = i < this.b.rp;
-      gg.fillStyle(on ? C.hekikan : 0x24343a, 1).fillRoundedRect(x + i * 21, 96, 16, 22, 4);
-      if (i === 4) gg.lineStyle(2, 0x8fb0aa, 0.8).lineBetween(x + i * 21 + 18.5, 92, x + i * 21 + 18.5, 122);
+      gg.fillStyle(on ? C.hekikan : 0x24343a, 1).fillRoundedRect(x + i * 23, 112, 19, 28, 5);
+      if (i === 4) gg.lineStyle(2, 0x8fb0aa, 0.8).lineBetween(x + i * 23 + 21, 108, x + i * 23 + 21, 144);
     }
     this.hudTop.add(gg);
-    this.hudTop.add(this.add.text(x - 4, 94, '', this.style(1)));
-    this.hudTop.add(this.add.text(x + 212, 107, `${this.b.rp}`, this.style(18, '#3ee0c8', 4)).setOrigin(0, 0.5));
-    this.hudTop.add(this.add.text(x, 76, '共鳴ゲージ', this.style(15, '#8fb0aa', 4)));
+    this.hudTop.add(this.add.text(x + 236, 126, `${this.b.rp}`, this.style(26, '#3ee0c8', 5)).setOrigin(0, 0.5));
+    this.hudTop.add(this.add.text(x, 84, '共鳴ゲージ', this.style(20, '#cfe3de', 4)));
   }
 
   /* ---------------- 戦闘の進行 ---------------- */
@@ -528,7 +609,7 @@ export class BattleScene extends Phaser.Scene {
     this.banner(guardianWin ? '試練 達成' : win ? '勝利' : '敗北', guardianWin ? '守護獣が 心を開いた' : win ? '' : 'もう一度 挑もう', win ? C.hekikan : C.danger);
     this.cameras.main.flash(300, 255, 255, 255);
     await this.wait(2200);
-    if (this.alive) h.onEnd({ encounterId: this.encounterId, outcome: win ? 'win' : 'lose', stats: { ...this.b.stats } });
+    if (this.alive) h.onEnd({ encounterId: this.encounterId, outcome: win ? 'win' : 'lose', stats: { ...this.b.stats }, final: this.b });
   }
 
   /* ---------------- タイミング入力 ---------------- */

@@ -117,6 +117,9 @@ export interface Unit {
   name: string;
   side: Side;
   element: Element;
+  level: number;
+  /** レベルによる強さ(HPと与ダメージに掛かる) */
+  scale: number;
   maxHp: number;
   hp: number;
   atk: number;

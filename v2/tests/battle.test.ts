@@ -53,6 +53,21 @@ describe('タイムライン', () => {
     const slow = previewTimeline(b, 20, 1.4).findIndex((x) => x.uid === t.actor.uid);
     expect(slow).toBeGreaterThan(fast);
   });
+  it('開幕はこちらの先制: 味方3体と巡環士が全員動くまで敵は動かない', () => {
+    for (const enc of ['wild', 'ashstar', 'guardian']) {
+      const b = createBattle(enc, 7);
+      const first4 = [0, 1, 2, 3].map(() => {
+        const t = startTurn(b);
+        const side = t.actor.side;
+        if (!t.skip) {
+          if (side === 'enemy') performEnemy(b, 'good');
+          else performAction(b, chooseAllyAction(b), 'good');
+        }
+        return side;
+      });
+      expect(first4.filter((s) => s === 'enemy')).toEqual([]);
+    }
+  });
   it('開始時、行動できる敵は全員が予告を持つ', () => {
     const b = createBattle('ashstar', 3);
     for (const e of activeEnemies(b)) expect(b.intents[e.uid]).toBeTruthy();

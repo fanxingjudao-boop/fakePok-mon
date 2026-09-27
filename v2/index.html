@@ -10,6 +10,12 @@
 <div id="app" class="layout-bottom">
   <div id="stage" aria-label="戦場"></div>
   <aside id="dock" aria-label="巡環士の記録帳(操作パネル)"></aside>
+  <div id="field-hud" hidden>
+    <div class="hud-place"><b id="hud-map"></b><span id="hud-obj"></span></div>
+    <button type="button" class="hud-btn" id="hud-menu" aria-label="メニュー">メニュー</button>
+    <button type="button" class="hud-btn act" id="hud-act">調べる</button>
+  </div>
+  <div id="memo-out" aria-live="polite"></div>
 </div>
 
 <section id="screen-title" class="screen" aria-labelledby="title-h">
@@ -17,17 +23,24 @@
     <div class="brand">
       <canvas id="title-emblem" width="240" height="240" aria-hidden="true"></canvas>
       <div>
-        <div class="eyebrow">ポケットレジェンド ・ 試作版 PHASE 0</div>
+        <div class="eyebrow">ポケットレジェンド ・ 試作版 第1章</div>
         <h1 id="title-h">碧環の旅 共鳴バトル</h1>
         <p>敵の「予告」を読み、弱点で盾を割ってブレイク。倒すか、心を鎮めるかはあなた次第。</p>
       </div>
     </div>
+    <div class="row-actions title-main">
+      <button class="btn primary big" id="btn-new" type="button">はじめから</button>
+      <button class="btn big" id="btn-continue" type="button" hidden>つづきから</button>
+    </div>
+    <p class="note" id="save-info" hidden></p>
+    <h3 class="sec-h">戦闘の練習</h3>
     <div class="encs" id="enc-list"></div>
     <div class="row-actions">
       <button class="btn" id="btn-help" type="button">遊び方</button>
       <button class="btn" id="btn-settings" type="button">設定</button>
+      <button class="btn" type="button" data-fullscreen hidden>全画面で遊ぶ</button>
     </div>
-    <p class="note">操作: 矢印キー/十字キー・Z/Enter(決定)・X/Esc(戻る)・タップ/クリック。タイミング入力は Z・Space・タップ。</p>
+    <p class="note">操作: 移動は矢印キー/WASD/十字キー/画面をなぞる(大きくなぞるか Shift でダッシュ)。Z/Enter/タップで調べる・決定、X/Esc でメニュー・戻る。戦闘のタイミング入力は Z・Space・タップ。</p>
   </div>
 </section>
 
@@ -44,6 +57,45 @@
       <button class="btn" id="btn-retry" type="button">もう一度</button>
       <button class="btn" id="btn-title" type="button">タイトルへ</button>
     </div>
+  </div>
+</section>
+
+<section id="screen-menu" class="screen" hidden aria-labelledby="menu-h">
+  <div class="wrap menu">
+    <div class="menu-top">
+      <h2 id="menu-h">巡環士の記録帳</h2>
+      <button class="btn primary" type="button" id="menu-close">もどる</button>
+    </div>
+    <div class="menu-grid">
+      <section class="menu-sec"><h3>仲間</h3><div id="menu-party"></div></section>
+      <section class="menu-sec"><h3>道具</h3><div id="menu-items"></div></section>
+      <section class="menu-sec wide"><h3>いまの目的</h3><p id="menu-obj" class="menu-obj"></p><h3>出来事</h3><ol id="menu-notes" class="menu-notes"></ol></section>
+      <section class="menu-sec wide"><h3>出会ったモンスター</h3><div id="menu-records" class="records"></div></section>
+    </div>
+    <div class="row-actions">
+      <button class="btn" type="button" id="menu-save">セーブ</button>
+      <button class="btn" type="button" id="menu-settings">設定</button>
+      <button class="btn" type="button" id="menu-help">遊び方</button>
+      <button class="btn" type="button" id="menu-title">タイトルへ</button>
+    </div>
+    <p class="note" id="menu-info"></p>
+  </div>
+</section>
+
+<section id="screen-chapter" class="screen" hidden aria-labelledby="chapter-h">
+  <div class="wrap result chapter">
+    <div>
+      <div class="brand eyebrow">第1章 完</div>
+      <h2 id="chapter-h">碧樹の目覚め</h2>
+      <p class="lead" id="chapter-lead"></p>
+    </div>
+    <div class="stats" id="chapter-stats"></div>
+    <div class="choices-made" id="chapter-choices"></div>
+    <div class="row-actions">
+      <button class="btn primary" id="chapter-continue" type="button">このまま碧樹圏を歩く</button>
+      <button class="btn" id="chapter-title" type="button">タイトルへ</button>
+    </div>
+    <p class="note">第2章(潮環圏)は制作中です。セーブは自動で残ります。</p>
   </div>
 </section>
 
@@ -91,6 +143,15 @@
       <div class="hint">自動: 攻撃は常に Good、防御は7割の確率で Good(半減)。Perfect やパリィは手動でのみ出せます。</div>
     </div>
     <div class="opt">
+      <div class="lbl">文字の速さ</div>
+      <div class="seg" id="opt-text">
+        <button type="button" data-v="slow">ゆっくり</button>
+        <button type="button" data-v="normal">ふつう</button>
+        <button type="button" data-v="fast">はやい</button>
+        <button type="button" data-v="instant">一瞬</button>
+      </div>
+    </div>
+    <div class="opt">
       <div class="lbl">演出の速さ</div>
       <div class="seg" id="opt-speed">
         <button type="button" data-v="1">ふつう</button>
@@ -103,7 +164,11 @@
       <input type="range" id="opt-volume" min="0" max="1" step="0.05">
       <div class="seg" id="opt-mute"><button type="button" data-v="toggle">ミュート</button></div>
     </div>
-    <div class="row-actions"><button class="btn primary" type="button" data-close>もどる</button></div>
+    <div class="row-actions">
+      <button class="btn primary" type="button" data-close>もどる</button>
+      <button class="btn" type="button" id="btn-settings-help">遊び方</button>
+      <button class="btn" type="button" data-fullscreen hidden>全画面で遊ぶ</button>
+    </div>
   </div>
 </section>
 

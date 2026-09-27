@@ -9,22 +9,25 @@
  * 各関数はアニメーション用の BattleEvent[] を返す。
  * ============================================================ */
 import type {
+  ItemId,
   Action, BattleEvent, BattleState, Element, FieldElement, Guard, Intent, Skill, Timing, Unit,
 } from './types.ts';
 import {
   ATK_UP_MAX, ATK_UP_STEP, BROKEN_DAMAGE, BURN_PCT, COVER_MULT, FIELD_BONUS, FIELD_PERIOD,
-  GUARD_MULT, MIST_MULT, REGEN_PCT, RP_MAX, TIMING_MULT, baseDamage, bestAffinity, nextRandom, turnDelay,
+  GUARD_MULT, MIST_MULT, REGEN_PCT, RP_MAX, TIMING_MULT, baseDamage, bestAffinity, levelScale, nextRandom, turnDelay,
 } from './rules.ts';
 import { skill } from '../data/skills.ts';
 import { PARTY, PLAYER, unitDef } from '../data/units.ts';
 import { ENCOUNTERS } from '../data/encounters.ts';
 
 /* ---------------- 生成 ---------------- */
-function makeUnit(defId: string, uid: string, slot: number): Unit {
+function makeUnit(defId: string, uid: string, slot: number, level = 1): Unit {
   const d = unitDef(defId);
+  const scale = levelScale(level);
+  const hp = d.side === 'player' ? d.hp : Math.round(d.hp * scale);
   return {
-    uid, defId, name: d.name, side: d.side, element: d.element,
-    maxHp: d.hp, hp: d.hp, atk: d.atk, def: d.def, spd: d.spd,
+    uid, defId, name: d.name, side: d.side, element: d.element, level, scale,
+    maxHp: hp, hp, atk: d.atk, def: d.def, spd: d.spd,
     shieldMax: d.shield, shield: d.shield, weaknesses: [...d.weaknesses], revealed: [],
     broken: false, ct: 0,
     status: { burn: 0, regen: 0, mist: 0, atkUp: 0, coveredBy: null },
@@ -32,20 +35,54 @@ function makeUnit(defId: string, uid: string, slot: number): Unit {
   };
 }
 
-export function createBattle(encounterId: string, seed = 1): BattleState {
+/** フィールドから始める戦闘の条件(省略時は試遊用の既定: 全員Lv1・HP満タン) */
+export interface BattleSetup {
+  /** 敵の顔ぶれ(省略時は遭遇データのまま) */
+  enemies?: string[];
+  enemyLevel?: number;
+  partyLevel?: number;
+  /** 仲間のHP(最大値に対する割合 0..1)。0 は倒れた状態で始まる */
+  partyHp?: Partial<Record<string, number>>;
+  items?: Partial<Record<ItemId, number>>;
+  /**
+   * 開幕: normal = こちらの先制 / first = 背後を取った(敵は驚いて出遅れ、盾も1枚欠ける)
+   * / ambush = 背後を取られた(敵が先に動く)
+   */
+  opening?: 'normal' | 'first' | 'ambush';
+}
+
+export function createBattle(encounterId: string, seed = 1, setup: BattleSetup = {}): BattleState {
   const enc = ENCOUNTERS[encounterId];
   if (!enc) throw new Error(`unknown encounter: ${encounterId}`);
   const units: Unit[] = [];
-  PARTY.forEach((id, i) => units.push(makeUnit(id, `a${i}`, i)));
+  PARTY.forEach((id, i) => {
+    const u = makeUnit(id, `a${i}`, i, setup.partyLevel ?? 1);
+    const frac = setup.partyHp?.[id];
+    if (frac !== undefined) {
+      u.hp = Math.max(0, Math.min(u.maxHp, Math.round(u.maxHp * frac)));
+      if (u.hp <= 0) { u.hp = 0; u.gone = 'ko'; }
+    }
+    units.push(u);
+  });
   units.push(makeUnit(PLAYER, 'p', 0));
-  enc.enemies.forEach((id, i) => units.push(makeUnit(id, `e${i}`, i)));
-  // 初期の手番: 1手ぶんの半分 + 並び順のわずかな差(同時刻を避ける)
-  units.forEach((u, i) => { u.ct = turnDelay(u.spd, 1) * 0.5 + i * 0.01; });
-  const [first, ...rest] = enc.fieldCycle;
+  (setup.enemies ?? enc.enemies).forEach((id, i) => units.push(makeUnit(id, `e${i}`, i, setup.enemyLevel ?? 1)));
+  // 初期の手番: 開幕はこちらの先制。味方と巡環士が全員1回ずつ動いてから敵が動く
+  // (開幕にいきなり殴られるのは不快、という試遊の声への対応)。並び順の差で同時刻を避ける
+  const opening = setup.opening ?? 'normal';
+  const first = units.filter((u) => (opening === 'ambush' ? u.side === 'enemy' : u.side !== 'enemy'));
+  const openingEnd = Math.max(...first.map((u) => turnDelay(u.spd, 1) * 0.3));
+  units.forEach((u, i) => {
+    const leads = opening === 'ambush' ? u.side === 'enemy' : u.side !== 'enemy';
+    u.ct = leads
+      ? turnDelay(u.spd, 1) * 0.3 + i * 0.01
+      : openingEnd + 1 + turnDelay(u.spd, 1) * (opening === 'first' ? 1.2 : 0.5) + i * 0.01;
+    if (opening === 'first' && u.side === 'enemy' && u.shieldMax > 1) u.shield = u.shieldMax - 1;
+  });
+  const [field0, ...rest] = enc.fieldCycle;
   const b: BattleState = {
     encounterId, units, time: 0, actor: null, intents: {},
-    field: first, fieldQueue: [...rest], fieldTimer: FIELD_PERIOD,
-    rp: 2, items: { potion: 3, revive: 1 },
+    field: field0, fieldQueue: [...rest], fieldTimer: FIELD_PERIOD,
+    rp: 2, items: { potion: 3, revive: 1, ...setup.items },
     rng: (seed >>> 0) || 1, outcome: null, turn: 0,
     stats: { actions: 0, perfects: 0, parries: 0, breaks: 0, pacified: 0, defeated: 0, damageDealt: 0, maxHit: 0, resonances: 0, allyKOs: 0 },
   };
@@ -125,7 +162,7 @@ const atkOf = (u: Unit) => u.atk * (1 + ATK_UP_STEP * u.status.atkUp);
 export function estimateDamage(b: BattleState, src: Unit, dst: Unit, s: Skill): number {
   if (!s.power) return 0;
   const hits = s.hits ?? 1;
-  const per = baseDamage(s.power, atkOf(src), dst.def)
+  const per = baseDamage(s.power, atkOf(src), dst.def) * src.scale
     * bestAffinity(s.elements, dst.element)
     * (s.elements.includes(b.field) ? FIELD_BONUS : 1)
     * (dst.broken ? BROKEN_DAMAGE : 1)
@@ -489,7 +526,7 @@ function dealHit(b: BattleState, src: Unit, dst: Unit, s: Skill, hitIdx: number,
   if (o.guard) mult *= GUARD_MULT[o.guard];
   if (o.covered) mult *= COVER_MULT;
   const variance = 0.95 + rand(b) * 0.1;
-  const raw = baseDamage(s.power ?? 0, atkOf(src), dst.def) * mult * variance;
+  const raw = baseDamage(s.power ?? 0, atkOf(src), dst.def) * src.scale * mult * variance;
   const amount = mult === 0 ? 0 : Math.max(1, Math.round(raw));
   applyDamage(dst, amount);
   ev.push({

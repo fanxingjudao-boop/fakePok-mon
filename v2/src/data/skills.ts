@@ -6,9 +6,9 @@ import type { Skill } from '../core/types.ts';
 
 const list: Skill[] = [
   /* ---------- ヒノコ(炎のキツネ)---------- */
-  { id: 'f_scratch', name: 'ひっかく', elements: ['none'], kind: 'attack', target: 'enemy', power: 40, weight: 0.8, cost: 0, category: 'skill',
+  { id: 'f_scratch', name: '爪さばき', elements: ['none'], kind: 'attack', target: 'enemy', power: 40, weight: 0.8, cost: 0, category: 'skill',
     desc: '速い無属性の一撃。次の手番が早く来る。' },
-  { id: 'f_ember', name: 'ひのこ', elements: ['fire'], kind: 'attack', target: 'enemy', power: 50, weight: 1.0, cost: 0, category: 'skill',
+  { id: 'f_ember', name: 'はじけ火', elements: ['fire'], kind: 'attack', target: 'enemy', power: 50, weight: 1.0, cost: 0, category: 'skill',
     effects: { burn: 0.35 }, desc: '火の粉を飛ばす。ときどき燃焼(3ターン)。' },
   { id: 'f_flurry', name: '火連爪', elements: ['fire'], kind: 'attack', target: 'enemy', power: 21, hits: 3, weight: 1.2, cost: 2, category: 'skill',
     desc: '炎の爪で3連撃。弱点なら盾を3つ削る。' },
@@ -16,7 +16,7 @@ const list: Skill[] = [
     desc: '敵全体を狐火で包む。重い。' },
 
   /* ---------- シズク(潮のカワウソ)---------- */
-  { id: 'w_jet', name: 'みずでっぽう', elements: ['water'], kind: 'attack', target: 'enemy', power: 46, weight: 0.9, cost: 0, category: 'skill',
+  { id: 'w_jet', name: '水つぶて', elements: ['water'], kind: 'attack', target: 'enemy', power: 46, weight: 0.9, cost: 0, category: 'skill',
     desc: '水を撃ち出す。やや速い。' },
   { id: 'w_cover', name: 'かばう', elements: ['none'], kind: 'cover', target: 'ally', weight: 0.7, cost: 0, category: 'skill',
     desc: '次の自分の番まで、選んだ仲間への攻撃を肩代わり(被ダメ半減)。' },
@@ -26,7 +26,7 @@ const list: Skill[] = [
     effects: { delay: 0.45 }, desc: '2連撃し、相手の次の手番を遅らせる。' },
 
   /* ---------- コノハ(苔の石フクロウ)---------- */
-  { id: 'o_peck', name: 'つつく', elements: ['none'], kind: 'attack', target: 'enemy', power: 38, weight: 0.8, cost: 0, category: 'skill',
+  { id: 'o_peck', name: 'くちばし打ち', elements: ['none'], kind: 'attack', target: 'enemy', power: 38, weight: 0.8, cost: 0, category: 'skill',
     desc: '速い無属性の一撃。' },
   { id: 'o_leaf', name: 'このはがえし', elements: ['wood'], kind: 'attack', target: 'enemy', power: 48, weight: 1.0, cost: 0, category: 'skill',
     desc: '鋭い木の葉を返す。' },
@@ -66,31 +66,36 @@ const list: Skill[] = [
     effects: { field: 'wood' }, desc: '場を「森」に塗り替える。森の技が強まる。' },
   { id: 'p_field_thunder', name: '環術・雷', elements: ['thunder'], kind: 'field', target: 'none', weight: 1.0, cost: 3, category: 'art',
     effects: { field: 'thunder' }, desc: '場を「雷」に塗り替える。雷の技が強まる。' },
-  { id: 'p_potion', name: 'キズぐすり', elements: ['none'], kind: 'item', target: 'ally', weight: 0.8, cost: 0, category: 'item', item: 'potion',
+  { id: 'p_potion', name: '薬草膏', elements: ['none'], kind: 'item', target: 'ally', weight: 0.8, cost: 0, category: 'item', item: 'potion',
     effects: { healPct: 0.5 }, desc: '仲間1体のHPを半分回復する。' },
-  { id: 'p_revive', name: 'げんきのかけら', elements: ['none'], kind: 'item', target: 'allyKO', weight: 1.0, cost: 0, category: 'item', item: 'revive',
+  { id: 'p_revive', name: '目覚めの実', elements: ['none'], kind: 'item', target: 'allyKO', weight: 1.0, cost: 0, category: 'item', item: 'revive',
     effects: { revivePct: 0.4 }, desc: '倒れた仲間をHP4割で立ち上がらせる。' },
 
   /* ---------- 敵: 野生 ---------- */
-  { id: 'e_tackle', name: 'たいあたり', elements: ['none'], kind: 'attack', target: 'enemy', power: 38, weight: 1.0, cost: 0, category: 'enemy', desc: '' },
-  { id: 'e_spore', name: 'ねむりごな', elements: ['wood'], kind: 'attack', target: 'enemy', power: 20, weight: 1.0, cost: 0, category: 'enemy',
+  { id: 'e_tackle', name: 'ぶちかまし', elements: ['none'], kind: 'attack', target: 'enemy', power: 38, weight: 1.0, cost: 0, category: 'enemy', desc: '' },
+  { id: 'e_spore', name: 'まどろみ花粉', elements: ['wood'], kind: 'attack', target: 'enemy', power: 20, weight: 1.0, cost: 0, category: 'enemy',
     effects: { delay: 0.5 }, desc: '眠気で次の手番が遅れる' },
-  { id: 'e_sweet', name: 'あまいかおり', elements: ['wood'], kind: 'heal', target: 'ally', weight: 1.0, cost: 0, category: 'enemy',
+  { id: 'e_sweet', name: '蜜のかおり', elements: ['wood'], kind: 'heal', target: 'ally', weight: 1.0, cost: 0, category: 'enemy',
     effects: { healPct: 0.25 }, desc: '' },
-  { id: 'e_shock', name: 'でんきショック', elements: ['thunder'], kind: 'attack', target: 'enemy', power: 46, weight: 1.0, cost: 0, category: 'enemy', desc: '' },
+  { id: 'e_shock', name: 'ビリ針', elements: ['thunder'], kind: 'attack', target: 'enemy', power: 46, weight: 1.0, cost: 0, category: 'enemy', desc: '' },
   { id: 'e_discharge', name: '放電', elements: ['thunder'], kind: 'attack', target: 'allEnemies', power: 30, weight: 1.3, cost: 0, category: 'enemy', desc: '' },
-  { id: 'e_bite', name: 'かじる', elements: ['none'], kind: 'attack', target: 'enemy', power: 40, weight: 0.8, cost: 0, category: 'enemy', desc: '' },
-  { id: 'e_quick', name: 'でんこうせっか', elements: ['none'], kind: 'attack', target: 'enemy', power: 30, weight: 0.6, cost: 0, category: 'enemy', desc: '' },
+  { id: 'e_bite', name: 'かみつき', elements: ['none'], kind: 'attack', target: 'enemy', power: 40, weight: 0.8, cost: 0, category: 'enemy', desc: '' },
+  { id: 'e_quick', name: 'かけぬけ', elements: ['none'], kind: 'attack', target: 'enemy', power: 30, weight: 0.6, cost: 0, category: 'enemy', desc: '' },
+
+  { id: 'e_peck', name: 'ついばみ', elements: ['none'], kind: 'attack', target: 'enemy', power: 36, weight: 0.8, cost: 0, category: 'enemy', desc: '' },
+  { id: 'e_gust', name: 'はばたき', elements: ['none'], kind: 'attack', target: 'allEnemies', power: 22, weight: 1.2, cost: 0, category: 'enemy', desc: '' },
+  { id: 'e_roll', name: 'ころがり', elements: ['none'], kind: 'attack', target: 'enemy', power: 54, weight: 1.3, cost: 0, category: 'enemy', desc: '' },
+  { id: 'e_splash', name: '水はじき', elements: ['water'], kind: 'attack', target: 'enemy', power: 40, weight: 0.9, cost: 0, category: 'enemy', desc: '' },
 
   /* ---------- 敵: 灰星局 ---------- */
   { id: 'd_overdrive', name: '強制出力', elements: ['none'], kind: 'buff', target: 'none', weight: 1.0, cost: 0, category: 'enemy',
     effects: { atkUp: 1, healPct: 0.1 }, desc: '操られた仲間の攻撃を上げ、回復する' },
   { id: 'd_pulse', name: '過負荷パルス', elements: ['thunder'], kind: 'attack', target: 'allEnemies', power: 34, weight: 1.2, cost: 0, category: 'enemy', desc: '' },
   { id: 'e_spark', name: 'スパーク', elements: ['thunder'], kind: 'attack', target: 'enemy', power: 50, weight: 1.0, cost: 0, category: 'enemy', desc: '' },
-  { id: 'e_fury', name: 'みだれひっかき', elements: ['none'], kind: 'attack', target: 'enemy', power: 19, hits: 3, weight: 1.1, cost: 0, category: 'enemy', desc: '' },
-  { id: 'e_bubble', name: 'あわ', elements: ['water'], kind: 'attack', target: 'enemy', power: 42, weight: 1.0, cost: 0, category: 'enemy',
+  { id: 'e_fury', name: 'めった爪', elements: ['none'], kind: 'attack', target: 'enemy', power: 19, hits: 3, weight: 1.1, cost: 0, category: 'enemy', desc: '' },
+  { id: 'e_bubble', name: 'あぶく弾', elements: ['water'], kind: 'attack', target: 'enemy', power: 42, weight: 1.0, cost: 0, category: 'enemy',
     effects: { delay: 0.3 }, desc: '' },
-  { id: 'e_clamp', name: 'ハサミではさむ', elements: ['none'], kind: 'attack', target: 'enemy', power: 64, weight: 1.3, cost: 0, category: 'enemy', desc: '' },
+  { id: 'e_clamp', name: 'はさみ締め', elements: ['none'], kind: 'attack', target: 'enemy', power: 64, weight: 1.3, cost: 0, category: 'enemy', desc: '' },
 
   /* ---------- 敵: 森の守護獣 ---------- */
   { id: 'g_lash', name: '樹鞭', elements: ['wood'], kind: 'attack', target: 'enemy', power: 62, weight: 1.0, cost: 0, category: 'enemy', desc: '' },

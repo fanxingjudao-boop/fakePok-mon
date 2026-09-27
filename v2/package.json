@@ -11,14 +11,19 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "sim": "node --experimental-strip-types scripts/sim.ts",
-    "e2e": "node tests/e2e.mjs"
+    "e2e": "node tests/e2e.mjs && node tests/e2e-field.mjs",
+    "art:cutout": "node scripts/art-cutout.mjs",
+    "art:sheet": "node scripts/art-sheet.mjs",
+    "art:field": "node scripts/field-preview.mjs"
   },
   "dependencies": {
+    "inkjs": "^2.4.0",
     "phaser": "^4.2.1"
   },
   "devDependencies": {
     "@types/node": "^22.20.4",
     "playwright": "^1.63.0",
+    "sharp": "^0.35.4",
     "typescript": "^7.0.2",
     "vite": "^8.3.1",
     "vite-plugin-singlefile": "^2.3.3",

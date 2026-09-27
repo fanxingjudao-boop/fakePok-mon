@@ -55,6 +55,14 @@ export function turnDelay(spd: number, weight: number): number {
  * 攻撃/防御の比に比例させる(飽和する式だと能力差や成長が効かず、戦闘が平板になる)。
  * 比は 0.25〜4 に制限して極端な値を防ぐ。
  */
+/**
+ * レベルによる強さ。HPと与ダメージの両方に掛ける(攻撃/防御の比は変えない)。
+ * 同じレベル同士なら戦闘の長さは変わらず、レベル差だけが効く。
+ */
+export function levelScale(level: number): number {
+  return 1 + 0.06 * (Math.max(1, level) - 1);
+}
+
 export function baseDamage(power: number, atk: number, def: number): number {
   const ratio = Math.min(4, Math.max(0.25, atk / Math.max(1, def)));
   return power * ratio * 0.5;
