@@ -13,14 +13,18 @@
  *   wet sends → reverbIn → Convolver(procedural IR) → reverb return → mix
  */
 
-export type BgmId = 'title' | 'wild' | 'ashstar' | 'guardian';
+export type BgmId =
+  | 'title' | 'wild' | 'ashstar' | 'guardian'
+  | 'village' | 'forest' | 'road' | 'marsh' | 'shrine';
 export type SfxId =
   | 'select' | 'confirm' | 'cancel' | 'turn'
   | 'hit' | 'weak' | 'resist' | 'break'
   | 'perfect' | 'good' | 'miss' | 'guard' | 'parry'
   | 'heal' | 'buff' | 'debuff' | 'ko' | 'pacify'
-  | 'resonance' | 'field' | 'charge' | 'reveal';
-export type JingleId = 'victory' | 'defeat';
+  | 'resonance' | 'field' | 'charge' | 'reveal'
+  | 'step' | 'step_wood' | 'talk' | 'notice' | 'encounter' | 'item_get'
+  | 'burn' | 'water' | 'grow' | 'save' | 'door' | 'menu';
+export type JingleId = 'victory' | 'defeat' | 'chapter';
 type Layer = 0 | 1 | 2;
 type Ctx = BaseAudioContext;
 
@@ -378,41 +382,186 @@ function vPluck(ctx: Ctx, dest: AudioNode, t: number, midi: number, len: number,
   mkOsc(ctx, 'square', f, t, end, lp);
 }
 
-type LeadWave = 'saw' | 'bell';
+/**
+ * Lead timbres. `saw`/`bell` are the battle/title voices; the rest are the
+ * softer field-music voices:
+ *   flute  — breathy triangle, slow vibrato (village)
+ *   reed   — clarinet-ish filtered square, woody and a little mysterious (forest)
+ *   bowed  — slow-attack detuned saw, viola-like (road)
+ *   chime  — inharmonic temple bell with a long ring (shrine)
+ *   vibes  — soft mallet bar with motor tremolo, hazy (marsh)
+ */
+type LeadWave = 'saw' | 'bell' | 'flute' | 'reed' | 'bowed' | 'chime' | 'vibes';
+
+/** Delayed vibrato (in cents) on a set of oscillators. */
+function vibrato(ctx: Ctx, oscs: readonly OscillatorNode[], t: number, end: number, rate: number, cents: number, onset: number, full: number): void {
+  const lfo = ctx.createOscillator();
+  lfo.frequency.value = rate;
+  const depth = ctx.createGain();
+  depth.gain.setValueAtTime(0, t);
+  depth.gain.linearRampToValueAtTime(0, t + onset);
+  depth.gain.linearRampToValueAtTime(cents, t + full);
+  lfo.connect(depth);
+  for (const o of oscs) depth.connect(o.detune);
+  lfo.start(t);
+  lfo.stop(end);
+}
 
 function vLead(ctx: Ctx, dry: AudioNode, wet: AudioNode | null, t: number, midi: number, len: number, level: number, bright: number, wave: LeadWave): void {
   const f = mtof(midi);
   const g = ctx.createGain();
   g.connect(dry);
   if (wet) g.connect(wet);
-  if (wave === 'bell') {
-    const end = perc(g.gain, t, 0.004, level, Math.max(0.5, len * 1.2));
-    mkOsc(ctx, 'sine', f, t, end, g);
-    const h = mkGain(ctx, g, 0);
-    perc(h.gain, t, 0.002, 0.3, 0.25);
-    mkOsc(ctx, 'sine', f * 3, t, end, h);
-    mkOsc(ctx, 'triangle', f * 2, t, end, mkGain(ctx, g, 0.12));
-    return;
+  switch (wave) {
+    case 'bell': {
+      const end = perc(g.gain, t, 0.004, level, Math.max(0.5, len * 1.2));
+      mkOsc(ctx, 'sine', f, t, end, g);
+      const h = mkGain(ctx, g, 0);
+      perc(h.gain, t, 0.002, 0.3, 0.25);
+      mkOsc(ctx, 'sine', f * 3, t, end, h);
+      mkOsc(ctx, 'triangle', f * 2, t, end, mkGain(ctx, g, 0.12));
+      return;
+    }
+    case 'chime': {
+      // Struck bell: fundamental + hum (f/2) ring long, inharmonic partials die fast,
+      // a slightly detuned twin gives the slow beating of a real bell.
+      const ring = Math.max(1.6, len * 1.5);
+      const end = perc(g.gain, t, 0.003, level, ring);
+      mkOsc(ctx, 'sine', f, t, end, g);
+      mkOsc(ctx, 'sine', f * 1.0035, t, end, mkGain(ctx, g, 0.3));
+      mkOsc(ctx, 'sine', f / 2, t, end, mkGain(ctx, g, 0.28));
+      const h = mkGain(ctx, g, 0);
+      perc(h.gain, t, 0.002, 0.32, ring * 0.3);
+      mkOsc(ctx, 'sine', f * 2.76, t, end, h);
+      const k = mkGain(ctx, g, 0);
+      perc(k.gain, t, 0.001, 0.14, 0.09);
+      mkOsc(ctx, 'sine', f * 5.4, t, end, k);
+      return;
+    }
+    case 'vibes': {
+      const end = perc(g.gain, t, 0.004, level, Math.max(0.9, len * 1.3));
+      const trem = mkGain(ctx, g, 0.7);
+      const lfo = ctx.createOscillator();
+      lfo.frequency.setValueAtTime(4.6, t);
+      const lg = ctx.createGain();
+      lg.gain.value = 0.3;
+      lfo.connect(lg);
+      lg.connect(trem.gain);
+      lfo.start(t);
+      lfo.stop(end);
+      mkOsc(ctx, 'sine', f, t, end, trem);
+      const k = mkGain(ctx, trem, 0);
+      perc(k.gain, t, 0.001, 0.22, 0.12);
+      mkOsc(ctx, 'sine', f * 4, t, end, k);
+      return;
+    }
+    case 'flute': {
+      const end = adsr(g.gain, t, 0.06, 0.3, 0.8, len, 0.16, level);
+      const lp = mkFilter(ctx, 'lowpass', bright || 2600, 0.7, t, g);
+      const a = mkOsc(ctx, 'triangle', f, t, end, lp);
+      const b = mkOsc(ctx, 'sine', f * 2, t, end, mkGain(ctx, lp, 0.1));
+      vibrato(ctx, [a, b], t, end, 4.8, 11, 0.22, 0.6);
+      // Breath chiff on the attack.
+      const n = mkGain(ctx, g, 0);
+      perc(n.gain, t, 0.008, 0.16, 0.08);
+      mkNoise(ctx, t, 0.12, mkFilter(ctx, 'bandpass', Math.min(8000, f * 3), 1.5, t, n));
+      return;
+    }
+    case 'reed': {
+      const end = adsr(g.gain, t, 0.03, 0.3, 0.75, len, 0.1, level);
+      const lp = mkFilter(ctx, 'lowpass', bright || 1800, 1.1, t, g);
+      const a = mkOsc(ctx, 'square', f, t, end, mkGain(ctx, lp, 0.55));
+      const b = mkOsc(ctx, 'sine', f, t, end, lp);
+      vibrato(ctx, [a, b], t, end, 5, 9, 0.2, 0.5);
+      return;
+    }
+    case 'bowed': {
+      const at = Math.min(0.16, len * 0.3);
+      const end = adsr(g.gain, t, at, 0.4, 0.85, len, 0.28, level);
+      const lp = mkFilter(ctx, 'lowpass', (bright || 1500) * 0.6, 0.8, t, g);
+      lp.frequency.linearRampToValueAtTime(bright || 1500, t + at + 0.1);
+      const a = mkOsc(ctx, 'sawtooth', f, t, end, mkGain(ctx, lp, 0.6), -4);
+      const b = mkOsc(ctx, 'sawtooth', f, t, end, mkGain(ctx, lp, 0.4), 6);
+      vibrato(ctx, [a, b], t, end, 5.2, 14, 0.25, 0.7);
+      return;
+    }
+    case 'saw': {
+      const end = adsr(g.gain, t, 0.025, 0.25, 0.72, len, 0.14, level);
+      const lp = mkFilter(ctx, 'lowpass', bright, 1.2, t, g);
+      const a = mkOsc(ctx, 'sawtooth', f, t, end, lp, -5);
+      const b = mkOsc(ctx, 'square', f, t, end, mkGain(ctx, lp, 0.45), 5);
+      vibrato(ctx, [a, b], t, end, 5.4, 16, 0.18, 0.45);
+      return;
+    }
   }
-  const end = adsr(g.gain, t, 0.025, 0.25, 0.72, len, 0.14, level);
-  const lp = mkFilter(ctx, 'lowpass', bright, 1.2, t, g);
-  const a = mkOsc(ctx, 'sawtooth', f, t, end, lp, -5);
-  const b = mkOsc(ctx, 'square', f, t, end, mkGain(ctx, lp, 0.45), 5);
-  // Delayed vibrato (in cents).
-  const lfo = ctx.createOscillator();
-  lfo.frequency.value = 5.4;
-  const depth = ctx.createGain();
-  depth.gain.setValueAtTime(0, t);
-  depth.gain.linearRampToValueAtTime(0, t + 0.18);
-  depth.gain.linearRampToValueAtTime(16, t + 0.45);
-  lfo.connect(depth);
-  depth.connect(a.detune);
-  depth.connect(b.detune);
-  lfo.start(t);
-  lfo.stop(end);
 }
 
-type DrumInst = 'kick' | 'snare' | 'clap' | 'hat' | 'ohat' | 'metal' | 'clang' | 'tom' | 'crash' | 'shaker';
+type ArpVoice = 'pluck' | 'kalimba' | 'marimba' | 'glass';
+
+/** Thumb-piano tine: sine body, inharmonic "tink" partial, soft thumb thump. */
+function vKalimba(ctx: Ctx, dest: AudioNode, t: number, midi: number, len: number, level: number): void {
+  const f = mtof(midi);
+  const g = mkGain(ctx, dest, 0);
+  const end = perc(g.gain, t, 0.002, level, Math.max(0.3, len));
+  mkOsc(ctx, 'sine', f, t, end, g);
+  const k = mkGain(ctx, dest, 0);
+  perc(k.gain, t, 0.001, level * 0.3, 0.045);
+  mkOsc(ctx, 'sine', f * 5.93, t, t + 0.08, k);
+  const th = mkGain(ctx, dest, 0);
+  perc(th.gain, t, 0.002, level * 0.35, 0.07);
+  mkOsc(ctx, 'triangle', f, t, t + 0.1, th);
+}
+
+/** Woody mallet bar: short sine with a tuned 4th partial. */
+function vMarimba(ctx: Ctx, dest: AudioNode, t: number, midi: number, len: number, level: number): void {
+  const f = mtof(midi);
+  const g = mkGain(ctx, dest, 0);
+  const end = perc(g.gain, t, 0.002, level, Math.max(0.12, len));
+  mkOsc(ctx, 'sine', f, t, end, g);
+  const k = mkGain(ctx, dest, 0);
+  perc(k.gain, t, 0.001, level * 0.22, 0.035);
+  mkOsc(ctx, 'sine', f * 3.98, t, t + 0.07, k);
+  const th = mkGain(ctx, dest, 0);
+  perc(th.gain, t, 0.001, level * 0.25, 0.02);
+  mkOsc(ctx, 'triangle', f * 2, t, t + 0.05, th);
+}
+
+/** Soft glassy shimmer: gentle attack, octave overtone, no click. */
+function vGlass(ctx: Ctx, dest: AudioNode, t: number, midi: number, len: number, level: number): void {
+  const f = mtof(midi);
+  const g = mkGain(ctx, dest, 0);
+  const end = perc(g.gain, t, 0.025, level, Math.max(0.3, len));
+  mkOsc(ctx, 'sine', f, t, end, g);
+  mkOsc(ctx, 'sine', f * 2.001, t, end, mkGain(ctx, g, 0.18));
+}
+
+/** Sustained low drone (sine + detuned triangle) with a slowly breathing filter. */
+function vDrone(ctx: Ctx, dry: AudioNode, wet: AudioNode | null, t: number, notes: readonly number[], len: number, level: number, cutoff: number, seed: number): void {
+  const g = ctx.createGain();
+  g.connect(dry);
+  if (wet) g.connect(wet);
+  const at = Math.min(2.5, len * 0.25);
+  const end = adsr(g.gain, t, at, 0.5, 1, len, at, level);
+  const lp = mkFilter(ctx, 'lowpass', cutoff, 0.5, t, g);
+  const lfo = ctx.createOscillator();
+  lfo.frequency.setValueAtTime(0.09, t);
+  const lg = ctx.createGain();
+  lg.gain.value = cutoff * 0.35;
+  lfo.connect(lg);
+  lg.connect(lp.frequency);
+  lfo.start(t);
+  lfo.stop(end);
+  const sum = mkGain(ctx, lp, 1 / notes.length);
+  // A per-trigger micro-detune keeps overlapping retriggers from phase-cancelling.
+  const dt = ((seed * 7) % 5) - 2;
+  notes.forEach((n, i) => {
+    const f = mtof(n);
+    mkOsc(ctx, 'sine', f, t, end, sum, dt);
+    mkOsc(ctx, 'triangle', f, t, end, mkGain(ctx, sum, 0.45), 5 + i * 2 - dt);
+  });
+}
+
+type DrumInst = 'kick' | 'snare' | 'clap' | 'hat' | 'ohat' | 'metal' | 'clang' | 'tom' | 'crash' | 'shaker' | 'wood' | 'hand' | 'drop';
 
 function mkMetal(ctx: Ctx, t: number, dur: number, rate: number, dest: AudioNode): void {
   const src = ctx.createBufferSource();
@@ -509,6 +658,35 @@ function vDrum(ctx: Ctx, dest: AudioNode, inst: DrumInst, t: number, v: number):
       mkNoise(ctx, t, 0.08, mkFilter(ctx, 'bandpass', 5800, 1.8, t, n));
       return;
     }
+    case 'wood': {
+      // Hollow woodblock / clave.
+      const g = mkGain(ctx, dest, 0);
+      const end = perc(g.gain, t, 0.001, 0.38 * v, 0.05);
+      mkOsc(ctx, 'triangle', 1180, t, end, g);
+      const h = mkGain(ctx, dest, 0);
+      perc(h.gain, t, 0.001, 0.14 * v, 0.022);
+      mkOsc(ctx, 'sine', 1870, t, t + 0.05, h);
+      return;
+    }
+    case 'hand': {
+      // Soft hand drum: pitched skin tone + a little palm slap.
+      const g = mkGain(ctx, dest, 0);
+      const end = perc(g.gain, t, 0.002, 0.6 * v, 0.2);
+      const o = mkOsc(ctx, 'sine', 215, t, end, g);
+      o.frequency.exponentialRampToValueAtTime(160, t + 0.12);
+      const n = mkGain(ctx, dest, 0);
+      perc(n.gain, t, 0.001, 0.16 * v, 0.035);
+      mkNoise(ctx, t, 0.05, mkFilter(ctx, 'bandpass', 950, 1.3, t, n));
+      return;
+    }
+    case 'drop': {
+      // Water droplet: a tiny upward sine chirp.
+      const g = mkGain(ctx, dest, 0);
+      const end = perc(g.gain, t, 0.002, 0.3 * v, 0.07);
+      const o = mkOsc(ctx, 'sine', 620, t, end, g);
+      o.frequency.exponentialRampToValueAtTime(1500, t + 0.05);
+      return;
+    }
   }
 }
 
@@ -518,10 +696,12 @@ function vDrum(ctx: Ctx, dest: AudioNode, inst: DrumInst, t: number, v: number):
 
 interface PadPart { kind: 'pad'; layer: Layer; level: number; oct: number; cutoff: number; attack: number }
 interface BassPart { kind: 'bass'; layer: Layer; level: number; pattern: string; drive: boolean }
-interface ArpPart { kind: 'arp'; layer: Layer; level: number; pattern: string; oct: number; cutoff: number; len: number; pan: number }
+interface ArpPart { kind: 'arp'; layer: Layer; level: number; pattern: string; oct: number; cutoff: number; len: number; pan: number; voice?: ArpVoice; wet?: boolean }
 interface LeadPart { kind: 'lead'; layer: Layer; level: number; mel: (MelEv | undefined)[]; oct: number; bright: number; wave: LeadWave; wet: boolean }
 interface DrumPart { kind: 'drum'; layer: Layer; level: number; inst: DrumInst; p: string }
-type Part = PadPart | BassPart | ArpPart | LeadPart | DrumPart;
+/** Held pedal (absolute midi notes), retriggered every `bars` bars with overlapping swells. */
+interface DronePart { kind: 'drone'; layer: Layer; level: number; notes: readonly number[]; bars: number; cutoff: number }
+type Part = PadPart | BassPart | ArpPart | LeadPart | DrumPart | DronePart;
 
 interface Track {
   bpm: number;
@@ -532,6 +712,30 @@ interface Track {
 }
 
 const d = (inst: DrumInst, layer: Layer, level: number, p: string): DrumPart => ({ kind: 'drum', inst, layer, level, p });
+
+/** 苔むす獣道 hook (shared by the reed lead and its layer-2 glockenspiel double). */
+const FOREST_HOOK = compileMelody([
+  'C#5:3 F#5:3 E5:2 C#5:2 B4:2 C#5:4',
+  'A4:3 B4:3 C#5:2 G#4:6 r:2',
+  'C#5:3 F#5:3 E5:2 G#5:2 F#5:2 E5:4',
+  'C#5:8 r:4 B4:2 C#5:2',
+  'F#5:3 A5:3 G#5:2 F#5:2 E5:2 F#5:4',
+  'D5:3 C#5:3 A4:2 F#4:8',
+  'B4:2 C#5:2 D5:2 F#5:2 E5:4 D5:2 B4:2',
+  'C#5:6 F5:2 G#5:4 r:4',
+]);
+
+/** 倒木の旧街道 bowed melody (lead, and a low octave double at layer 2). */
+const ROAD_MEL = compileMelody([
+  'B4:6 C5:2 B4:4 G4:4',
+  'A4:6 G4:2 F4:8',
+  'E4:4 G4:4 B4:4 E5:4',
+  'D5:8 C5:4 B4:4',
+  'C5:6 B4:2 A4:4 E5:4',
+  'F5:8 D5:4 Bb4:4',
+  'E5:6 D5:2 C5:4 B4:4',
+  'D#5:8 r:2 F#4:2 B4:4',
+]);
 
 const TRACKS: Record<BgmId, Track> = {
   // Calm, hopeful F-lydian, sparse. Intensity only adds a soft shaker/pulse.
@@ -719,6 +923,226 @@ const TRACKS: Record<BgmId, Track> = {
       d('snare', 2, 0.6, onBar(7, '........oooxxxxx')),
     ],
   },
+
+  // ---- Field music (碧樹圏). Layer 0 is a complete, melodic piece on its own;
+  // layer 1 adds the walking groove; layer 2 adds colour/counter-lines.
+
+  // 樹上集落ハナゾノ: G major, lilting 96 BPM. Kalimba tresillo, breathy flute.
+  // Descending bass G–F#–E–D–C–C–B–D; bar 6 turns C major to C minor (the
+  // withering great tree) before settling home.
+  village: {
+    bpm: 96,
+    swing: 0.16,
+    chords: [
+      [55, 59, 62, 66], // Gmaj7
+      [54, 57, 62, 64], // D(add9)/F#
+      [52, 55, 59, 62], // Em7
+      [54, 57, 59, 62], // Bm7/D
+      [52, 55, 59, 64], // Cmaj7
+      [51, 55, 57, 60], // Cm6
+      [55, 59, 62, 67], // G/B
+      [55, 57, 60, 62], // D7sus4
+    ],
+    roots: [43, 42, 40, 38, 36, 36, 35, 38],
+    parts: [
+      { kind: 'pad', layer: 0, level: 0.17, oct: 0, cutoff: 1250, attack: 0.6 },
+      { kind: 'bass', layer: 0, level: 0.34, pattern: 'R_______5___R___', drive: false },
+      { kind: 'arp', layer: 0, level: 0.1, pattern: '0..2..1.3..2..1.', oct: 12, cutoff: 0, len: 0.55, pan: 0.2, voice: 'kalimba', wet: true },
+      {
+        kind: 'lead', layer: 0, level: 0.12, oct: 0, bright: 2600, wave: 'flute', wet: true,
+        mel: compileMelody([
+          'r:2 D5:2 G5:3 F#5:1 E5:2 D5:2 B4:4',
+          'D5:3 C5:1 B4:2 A4:2 F#4:4 A4:4',
+          'G4:3 A4:1 B4:4 E5:6 D5:2',
+          'D5:12 r:4',
+          'r:2 E5:2 G5:3 F#5:1 E5:2 D5:2 E5:4',
+          'Eb5:6 D5:2 C5:4 A4:4',
+          'B4:4 D5:3 B4:1 A4:4 G4:4',
+          'A4:10 r:6',
+        ]),
+      },
+      d('hand', 1, 0.42, 'x.......-...o...'),
+      d('shaker', 1, 0.3, '..-...-...-...-.'),
+      { kind: 'arp', layer: 1, level: 0.05, pattern: '......3.......2.', oct: 24, cutoff: 0, len: 0.6, pan: -0.35, voice: 'kalimba', wet: true },
+      {
+        kind: 'lead', layer: 2, level: 0.045, oct: 0, bright: 0, wave: 'bell', wet: true,
+        mel: compileMelody([
+          'r:8 B5:8',
+          'r:8 A5:8',
+          'r:8 G5:8',
+          'r:4 F#5:4 A5:4 B5:4',
+          'r:8 G5:8',
+          'r:8 G5:8',
+          'r:8 D6:8',
+          'r:4 C6:4 B5:4 A5:4',
+        ]),
+      },
+      { kind: 'pad', layer: 2, level: 0.06, oct: 12, cutoff: 2200, attack: 0.9 },
+      d('wood', 2, 0.22, '...-.......-..-.'),
+    ],
+  },
+
+  // 苔むす獣道 (main field theme): F# minor with a lydian D and a harmonic-minor
+  // C#7, straight 104 BPM walk. Clarinet-like reed hook on a 3+3+2 rhythm over
+  // a marimba ostinato.
+  forest: {
+    bpm: 104,
+    swing: 0,
+    chords: [
+      [54, 56, 57, 61], // F#m(add9)
+      [50, 54, 56, 61], // Dmaj7#11
+      [52, 56, 59, 61], // E6
+      [49, 52, 56, 59], // C#m7
+      [52, 54, 57, 61], // F#m7
+      [50, 54, 57, 61], // Dmaj7
+      [50, 54, 57, 59], // Bm7
+      [49, 53, 56, 59], // C#7
+    ],
+    roots: [42, 38, 40, 37, 42, 38, 35, 37],
+    parts: [
+      { kind: 'pad', layer: 0, level: 0.14, oct: 0, cutoff: 1400, attack: 0.3 },
+      { kind: 'bass', layer: 0, level: 0.4, pattern: 'R__.R.5.R__.O.5.', drive: false },
+      { kind: 'arp', layer: 0, level: 0.13, pattern: '0.3.1.3.2.3.1.3.', oct: 0, cutoff: 0, len: 0.2, pan: 0.25, voice: 'marimba' },
+      { kind: 'lead', layer: 0, level: 0.095, oct: 0, bright: 1900, wave: 'reed', wet: true, mel: FOREST_HOOK },
+      d('hand', 0, 0.38, 'x.......x..-....'),
+      d('shaker', 1, 0.32, '-.o.-.o.-.o.-.o.'),
+      d('wood', 1, 0.26, '......x.......x.'),
+      d('hand', 1, 0.3, '....-......o.o..'),
+      { kind: 'lead', layer: 2, level: 0.04, oct: 12, bright: 0, wave: 'bell', wet: true, mel: FOREST_HOOK },
+      { kind: 'bass', layer: 2, level: 0.12, pattern: '..O...O...O...O.', drive: false },
+      d('tom', 2, 0.42, onBar(7, '........o...o.o.')),
+      d('kick', 2, 0.3, 'x.........x.....'),
+    ],
+  },
+
+  // 倒木の旧街道 / 灰星局 camp: E phrygian unease (F over an E pedal, a Bb
+  // tritone, B7 back home), 92 BPM. A bowed, human melody over the camp's
+  // machinery: gated driven-bass pulse, steam-valve ticks, distant clangs.
+  road: {
+    bpm: 92,
+    swing: 0,
+    chords: [
+      [52, 55, 59, 66], // Em(add9)
+      [53, 57, 60, 64], // F/E
+      [52, 55, 59, 64], // Em
+      [52, 55, 60, 66], // Cmaj9#11 (no root)
+      [55, 57, 60, 64], // Am7
+      [53, 58, 62, 65], // Bb
+      [55, 59, 60, 64], // Cmaj7
+      [51, 54, 57, 59], // B7
+    ],
+    roots: [40, 40, 40, 36, 33, 34, 36, 35],
+    parts: [
+      { kind: 'pad', layer: 0, level: 0.2, oct: 0, cutoff: 1100, attack: 0.5 },
+      { kind: 'bass', layer: 0, level: 0.28, pattern: 'R_______R___5___', drive: false },
+      { kind: 'bass', layer: 0, level: 0.15, pattern: 'R.R.R.R.R.R.R.R.', drive: true },
+      d('metal', 0, 0.4, '..-...-...-...-.'),
+      { kind: 'lead', layer: 0, level: 0.15, oct: 0, bright: 1500, wave: 'bowed', wet: true, mel: ROAD_MEL },
+      d('kick', 1, 0.36, 'x.......x.......'),
+      d('clang', 1, 0.28, '............x...' + '.'.repeat(16)),
+      { kind: 'arp', layer: 1, level: 0.045, pattern: '0.40.40.0.40.40.', oct: 12, cutoff: 1800, len: 0.07, pan: -0.25 },
+      { kind: 'bass', layer: 2, level: 0.12, pattern: '...O..O....O..O.', drive: true },
+      d('metal', 2, 0.24, '-o.-.o.--o.-.o.-'),
+      d('snare', 2, 0.3, '....o.......o...'),
+      { kind: 'lead', layer: 2, level: 0.05, oct: -12, bright: 1100, wave: 'bowed', wet: false, mel: ROAD_MEL },
+    ],
+  },
+
+  // 花粉の湿地: Db lydian ↔ whole-tone haze, slow 72 BPM. Glassy shimmer arp,
+  // a tremolo vibraphone melody floating on a 6+6+4 hemiola that drifts up
+  // and down whole-tone scales, water drops.
+  marsh: {
+    bpm: 72,
+    swing: 0,
+    chords: [
+      [53, 56, 60, 67], // Dbmaj7#11
+      [55, 58, 63, 67], // Eb/Db (lydian II)
+      [54, 58, 62, 64], // whole-tone cluster over C
+      [55, 56, 60, 63], // Fm9
+      [53, 56, 60, 67], // Dbmaj7#11
+      [53, 56, 60, 61], // Bbm9
+      [55, 59, 61, 63], // whole-tone cluster over Eb
+      [54, 56, 61, 63], // Ab7sus4
+    ],
+    roots: [37, 37, 36, 41, 37, 34, 39, 44],
+    parts: [
+      { kind: 'pad', layer: 0, level: 0.21, oct: 0, cutoff: 1100, attack: 1.4 },
+      { kind: 'bass', layer: 0, level: 0.33, pattern: 'R_______________', drive: false },
+      { kind: 'arp', layer: 0, level: 0.055, pattern: '0.2.1.3.2.0.3.1.', oct: 12, cutoff: 0, len: 0.6, pan: 0.35, voice: 'glass', wet: true },
+      {
+        kind: 'lead', layer: 0, level: 0.11, oct: 0, bright: 0, wave: 'vibes', wet: true,
+        mel: compileMelody([
+          'C5:6 F5:6 G5:4',
+          'Bb5:6 G5:6 Eb5:4',
+          'D5:3 E5:3 F#5:3 G#5:3 Bb5:4',
+          'r:2 G5:14',
+          'Ab5:6 G5:6 F5:4',
+          'C5:6 Db5:6 Ab4:4',
+          'A5:3 G5:3 F5:3 Eb5:3 Db5:4',
+          'r:2 Eb5:14',
+        ]),
+      },
+      { kind: 'pad', layer: 1, level: 0.07, oct: 12, cutoff: 2400, attack: 1.6 },
+      d('drop', 1, 0.5, '......x.........' + '...........o....' + '..o.............' + '.........x..o...'),
+      {
+        kind: 'lead', layer: 2, level: 0.06, oct: 0, bright: 1800, wave: 'flute', wet: true,
+        mel: compileMelody([
+          'r:8 Ab4:8',
+          'Bb4:16',
+          'r:4 Bb4:4 G#4:8',
+          'C5:16',
+          'r:8 F4:8',
+          'Ab4:8 F4:8',
+          'r:4 B4:4 A4:8',
+          'Ab4:16',
+        ]),
+      },
+      d('shaker', 2, 0.18, '....-.......-...'),
+    ],
+  },
+
+  // 守護獣の森殿: D with an open-fifth pedal and a miyako-bushi Eb, 60 BPM.
+  // Sparse temple bells over a breathing drone; distant taiko at full intensity.
+  shrine: {
+    bpm: 60,
+    swing: 0,
+    chords: [
+      [50, 57, 62, 64], // D5(add9)
+      [50, 57, 62, 64],
+      [50, 53, 58, 62], // Bb/D
+      [50, 53, 58, 62],
+      [50, 55, 60, 64], // C/D
+      [48, 55, 60, 64], // C
+      [50, 55, 58, 62], // Gm/D
+      [50, 55, 57, 64], // A7sus4/D
+    ],
+    roots: [38, 38, 34, 34, 36, 36, 43, 33],
+    parts: [
+      { kind: 'drone', layer: 0, level: 0.34, notes: [38, 45, 50], bars: 2, cutoff: 650 },
+      { kind: 'pad', layer: 0, level: 0.13, oct: 0, cutoff: 800, attack: 1.6 },
+      {
+        kind: 'lead', layer: 0, level: 0.15, oct: 0, bright: 0, wave: 'chime', wet: true,
+        mel: compileMelody([
+          'A4:4 D5:4 E5:8',
+          'r:4 A5:8 G5:4',
+          'F5:12 D5:4',
+          'Eb5:8 D5:8',
+          'r:4 G5:4 C6:8',
+          'Bb5:8 A5:8',
+          'G5:6 F5:2 D5:8',
+          'E5:12 r:4',
+        ]),
+      },
+      {
+        kind: 'lead', layer: 1, level: 0.1, oct: -12, bright: 0, wave: 'chime', wet: true,
+        mel: compileMelody(['D5:16', 'r:16', 'r:16', 'r:16', 'A4:16', 'r:16', 'r:16', 'r:16']),
+      },
+      { kind: 'bass', layer: 1, level: 0.2, pattern: 'R_______________', drive: false },
+      { kind: 'pad', layer: 2, level: 0.05, oct: 12, cutoff: 1800, attack: 2 },
+      { kind: 'arp', layer: 2, level: 0.035, pattern: '0.......2.......', oct: 24, cutoff: 0, len: 1.2, pan: 0.4, voice: 'glass', wet: true },
+      d('tom', 2, 0.4, 'x.....o.........' + '.'.repeat(16)),
+    ],
+  },
 };
 
 function stepDur(track: Track): number {
@@ -768,9 +1192,30 @@ function scheduleStep(ctx: Ctx, track: Track, step: number, t0: number, b: Buses
         const idx = ch >= '0' && ch <= '9' ? Number(ch) : -1;
         if (idx < 0) break;
         const midi = (chord[idx % chord.length] ?? 60) + 12 * Math.floor(idx / chord.length) + part.oct;
-        vPluck(ctx, dry, t, midi, part.len, part.level, part.cutoff, s % 2 === 0 ? part.pan : -part.pan);
+        const pan = s % 2 === 0 ? part.pan : -part.pan;
+        const voice = part.voice ?? 'pluck';
+        if (voice === 'pluck') {
+          vPluck(ctx, dry, t, midi, part.len, part.level, part.cutoff, pan);
+          break;
+        }
+        let dest: AudioNode = dry;
+        if (pan !== 0 || part.wet) {
+          const pn = ctx.createStereoPanner();
+          pn.pan.setValueAtTime(pan, t);
+          pn.connect(dry);
+          if (part.wet) pn.connect(b.wet[part.layer]);
+          dest = pn;
+        }
+        if (voice === 'kalimba') vKalimba(ctx, dest, t, midi, part.len, part.level);
+        else if (voice === 'marimba') vMarimba(ctx, dest, t, midi, part.len, part.level);
+        else vGlass(ctx, dest, t, midi, part.len, part.level);
         break;
       }
+      case 'drone':
+        if (sb === 0 && bar % Math.max(1, part.bars) === 0) {
+          vDrone(ctx, dry, b.wet[part.layer], t, part.notes, Math.max(1, part.bars) * 16 * sd, part.level, part.cutoff, bar);
+        }
+        break;
       case 'lead': {
         const ev = part.mel[s];
         if (ev) vLead(ctx, dry, part.wet ? b.wet[part.layer] : null, t, ev[0] + part.oct, ev[1] * sd * 0.95, part.level, part.bright, part.wave);
@@ -1088,6 +1533,144 @@ const SFX: Record<SfxId, { dur: number; fn: SfxFn }> = {
       noise(c, w, t, { type: 'highpass', f: 8000, a: 0.02, dec: 0.2, g: 0.06 });
     },
   },
+
+  // ---- Field / exploration ------------------------------------------------
+  // `step`, `step_wood` and `talk` fire several times a second: they are kept
+  // very quiet, dry and short, and vary slightly per call so repeats don't
+  // sound machine-gunned.
+  step: {
+    dur: 0.1,
+    fn: (c, o, _w, t, p) => {
+      const v = 0.85 + rng() * 0.3;
+      noise(c, o, t, { type: 'lowpass', f: 900 * v * p, f1: 280, q: 0.7, a: 0.004, dec: 0.06, g: 0.19 });
+      noise(c, o, t + 0.008, { type: 'bandpass', f: 3400 * v, q: 1.1, a: 0.006, dec: 0.035, g: 0.04 });
+    },
+  },
+  step_wood: {
+    dur: 0.12,
+    fn: (c, o, _w, t, p) => {
+      const v = 0.94 + rng() * 0.12;
+      tone(c, o, t, { type: 'triangle', f: 190 * v * p, f1: 140 * v * p, glide: 0.06, dec: 0.08, g: 0.1, lp: 1200 });
+      tone(c, o, t, { f: 430 * v * p, dec: 0.035, g: 0.025 });
+      noise(c, o, t, { type: 'bandpass', f: 1300 * v, q: 1.8, dec: 0.022, g: 0.055 });
+    },
+  },
+  talk: {
+    dur: 0.05,
+    fn: (c, o, _w, t, p) => {
+      tone(c, o, t, { type: 'triangle', f: 760 * p, dec: 0.032, g: 0.085, lp: 2400 });
+    },
+  },
+  notice: {
+    dur: 0.35,
+    fn: (c, o, w, t, p) => {
+      tone(c, o, t, { type: 'triangle', f: 700 * p, f1: 1760 * p, glide: 0.05, dec: 0.07, g: 0.2 });
+      tone(c, o, t + 0.06, { f: 1760 * p, dec: 0.22, g: 0.22 });
+      tone(c, w, t + 0.06, { f: 1760 * p, dec: 0.22, g: 0.05 });
+      tone(c, o, t + 0.06, { type: 'triangle', f: 3520 * p, dec: 0.06, g: 0.05 });
+      noise(c, o, t, { type: 'bandpass', f: 2500, q: 1.5, dec: 0.015, g: 0.12 });
+    },
+  },
+  encounter: {
+    dur: 0.95,
+    fn: (c, o, w, t, p) => {
+      // Rising rush into a dissonant (tritone + minor 2nd) stab with a low hit.
+      noise(c, o, t, { type: 'bandpass', f: 500 * p, f1: 4200 * p, glide: 0.22, q: 1.1, a: 0.18, dec: 0.08, g: 0.3 });
+      const t1 = t + 0.2;
+      for (const n of [62, 68, 73]) {
+        tone(c, o, t1, { type: 'sawtooth', f: mtof(n) * p, dec: 0.45, g: 0.07, lp: 3200 });
+        tone(c, w, t1, { type: 'triangle', f: mtof(n + 12) * p, dec: 0.5, g: 0.05 });
+      }
+      tone(c, o, t1, { f: 130 * p, f1: 46 * p, glide: 0.2, dec: 0.4, g: 0.6 });
+      noise(c, o, t1, { type: 'highpass', f: 5000, dec: 0.05, g: 0.2 });
+      vDrum(c, o, 'tom', t1 + 0.18, 0.45);
+    },
+  },
+  item_get: {
+    dur: 0.75,
+    fn: (c, o, w, t, p) => {
+      // "da-da-DING": two quick square notes, then a ringing bell dyad.
+      tone(c, o, t, { type: 'square', f: mtof(79) * p, dec: 0.07, g: 0.06, lp: 3500 });
+      tone(c, o, t + 0.08, { type: 'square', f: mtof(84) * p, dec: 0.07, g: 0.06, lp: 3500 });
+      const t1 = t + 0.16;
+      for (const n of [88, 91]) {
+        tone(c, o, t1, { f: mtof(n) * p, dec: 0.55, g: 0.12 });
+        tone(c, w, t1, { f: mtof(n) * p, dec: 0.55, g: 0.05 });
+        tone(c, o, t1, { f: mtof(n) * 2.76 * p, dec: 0.12, g: 0.03 });
+      }
+      noise(c, w, t1, { type: 'highpass', f: 8000, a: 0.01, dec: 0.18, g: 0.05 });
+    },
+  },
+  burn: {
+    dur: 1.3,
+    fn: (c, o, w, t, p) => {
+      // Whoosh + roar body + random crackles.
+      noise(c, o, t, { type: 'bandpass', f: 350 * p, f1: 1800 * p, glide: 0.35, q: 0.9, a: 0.1, dec: 0.5, g: 0.34 });
+      noise(c, o, t + 0.05, { type: 'lowpass', f: 700 * p, f1: 250, glide: 1, q: 0.6, a: 0.12, dec: 0.9, g: 0.28 });
+      noise(c, w, t, { type: 'bandpass', f: 900 * p, q: 0.7, a: 0.15, dec: 0.5, g: 0.1 });
+      tone(c, o, t, { f: 80 * p, f1: 48 * p, glide: 0.4, a: 0.03, dec: 0.45, g: 0.25 });
+      const r = mulberry32(0xf14e);
+      for (let i = 0; i < 14; i++) {
+        noise(c, o, t + 0.08 + r() * 0.95, { type: 'bandpass', f: (1800 + r() * 3500) * p, q: 2.5, dec: 0.008 + r() * 0.014, g: 0.18 + r() * 0.2 });
+      }
+    },
+  },
+  water: {
+    dur: 1.2,
+    fn: (c, o, w, t, p) => {
+      // Splash, then a flowing wash and a few bubbles.
+      noise(c, o, t, { type: 'bandpass', f: 2600 * p, f1: 900 * p, glide: 0.2, q: 0.8, a: 0.005, dec: 0.22, g: 0.36 });
+      noise(c, o, t + 0.06, { type: 'lowpass', f: 1600 * p, f1: 450, glide: 0.9, q: 0.7, a: 0.12, dec: 0.8, g: 0.22 });
+      noise(c, w, t + 0.06, { type: 'bandpass', f: 1200 * p, q: 0.6, a: 0.15, dec: 0.6, g: 0.08 });
+      const r = mulberry32(0x3a7e2);
+      for (let i = 0; i < 6; i++) {
+        const f0 = (450 + r() * 700) * p;
+        tone(c, o, t + 0.15 + r() * 0.7, { f: f0, f1: f0 * 2.1, glide: 0.04, dec: 0.06, g: 0.06 + r() * 0.04 });
+      }
+    },
+  },
+  grow: {
+    dur: 1.1,
+    fn: (c, o, w, t, p) => {
+      // Rising G-pentatonic tine run over a swelling low tone and a leafy rustle.
+      tone(c, o, t, { f: 98 * p, f1: 196 * p, glide: 0.8, a: 0.35, dec: 0.55, g: 0.12 });
+      noise(c, o, t, { type: 'bandpass', f: 400 * p, f1: 2400 * p, glide: 0.8, q: 1.4, a: 0.35, dec: 0.4, g: 0.1 });
+      [67, 69, 74, 76, 79, 81, 86].forEach((n, i) => {
+        const tt = t + 0.05 + i * 0.085;
+        tone(c, o, tt, { f: mtof(n) * p, dec: 0.3, g: 0.09 });
+        tone(c, o, tt, { f: mtof(n) * 5.93 * p, dec: 0.03, g: 0.025 });
+        tone(c, w, tt, { f: mtof(n) * p, dec: 0.3, g: 0.04 });
+      });
+    },
+  },
+  save: {
+    dur: 1.4,
+    fn: (c, o, w, t, p) => {
+      // Two soft bell strokes (G5, D6) over a warm G4 hum.
+      tone(c, o, t, { f: mtof(67) * p, a: 0.06, dec: 1.1, g: 0.06 });
+      for (const [n, dt] of [[79, 0], [86, 0.16]] as const) {
+        const f = mtof(n) * p;
+        tone(c, o, t + dt, { f, dec: 1.0, g: 0.13 });
+        tone(c, w, t + dt, { f, dec: 1.0, g: 0.07 });
+        tone(c, o, t + dt, { f: f * 2.76, dec: 0.2, g: 0.025 });
+      }
+    },
+  },
+  door: {
+    dur: 0.45,
+    fn: (c, o, w, t, p) => {
+      noise(c, o, t, { type: 'bandpass', f: 380 * p, f1: 1500 * p, glide: 0.3, q: 0.9, a: 0.14, dec: 0.24, g: 0.24 });
+      noise(c, w, t, { type: 'bandpass', f: 800 * p, q: 0.8, a: 0.14, dec: 0.2, g: 0.06 });
+      tone(c, o, t + 0.1, { f: 90 * p, f1: 60 * p, dec: 0.12, g: 0.1 });
+    },
+  },
+  menu: {
+    dur: 0.15,
+    fn: (c, o, _w, t, p) => {
+      noise(c, o, t, { type: 'bandpass', f: 1800 * p, f1: 3600 * p, glide: 0.05, q: 1.2, a: 0.015, dec: 0.05, g: 0.16 });
+      tone(c, o, t, { f: 587 * p, f1: 880 * p, glide: 0.04, dec: 0.09, g: 0.3 });
+    },
+  },
 };
 
 function fireSfx(ctx: Ctx, g: Graph, id: SfxId, t: number, pan: number, pitch: number): void {
@@ -1116,6 +1699,7 @@ interface JingleDef {
   pads: readonly (readonly [time: number, notes: readonly number[], dur: number])[];
   bass: readonly JEv[];
   hits: readonly (readonly [time: number, inst: DrumInst, vel: number])[];
+  bells?: readonly JEv[]; // optional glockenspiel sparkle
 }
 
 const JINGLES: Record<JingleId, JingleDef> = {
@@ -1155,6 +1739,27 @@ const JINGLES: Record<JingleId, JingleDef> = {
     bass: [[0.0, 45, 1.0], [1.0, 41, 0.55], [1.55, 40, 0.85], [2.4, 33, 1.4]],
     hits: [[0.0, 'tom', 0.4], [2.4, 'tom', 0.5]],
   },
+  // Chapter clear: the village's dotted "Hanazono" motif, a C→Cm (iv minor)
+  // sigh, then D7sus opening onto a wide Gmaj9 with a rising sparkle.
+  chapter: {
+    dur: 5.4,
+    leadWave: 'flute',
+    leadBright: 2800,
+    lead: [
+      [0.0, 74, 0.26], [0.28, 79, 0.4], [0.7, 78, 0.12], [0.84, 76, 0.26], [1.12, 74, 0.52],
+      [1.7, 75, 0.26], [1.98, 74, 0.26], [2.26, 72, 0.5],
+      [2.8, 74, 0.26], [3.08, 81, 0.26], [3.36, 79, 1.8],
+    ],
+    pads: [
+      [0.0, [52, 55, 59, 64], 1.68],
+      [1.7, [51, 55, 57, 60], 1.08],
+      [2.8, [50, 55, 57, 60], 0.54],
+      [3.36, [55, 59, 62, 66, 69], 1.9],
+    ],
+    bass: [[0.0, 36, 1.68], [1.7, 36, 1.08], [2.8, 38, 0.54], [3.36, 43, 1.9]],
+    hits: [[0.0, 'hand', 0.35], [1.7, 'hand', 0.3], [3.36, 'tom', 0.3], [3.36, 'crash', 0.18]],
+    bells: [[3.36, 83, 0.4], [3.48, 86, 0.4], [3.6, 90, 0.4], [3.72, 93, 0.5], [4.1, 91, 1.0]],
+  },
 };
 
 function scheduleJingle(ctx: Ctx, g: Graph, id: JingleId, t: number): void {
@@ -1169,6 +1774,7 @@ function scheduleJingle(ctx: Ctx, g: Graph, id: JingleId, t: number): void {
   for (const [tt, notes, dur] of j.pads) vPad(ctx, out, wet, t + tt, notes, dur, 0.2, 1800, 0.04);
   for (const [tt, m, dur] of j.bass) vBass(ctx, out, t + tt, m, dur, 0.42, false);
   for (const [tt, inst, v] of j.hits) vDrum(ctx, out, inst, t + tt, v);
+  for (const [tt, m, dur] of j.bells ?? []) vLead(ctx, out, wet, t + tt, m, dur, 0.05, 0, 'bell');
 }
 
 // ---------------------------------------------------------------------------
@@ -1299,7 +1905,7 @@ export class AudioEngine {
     }
   }
 
-  jingle(id: 'victory' | 'defeat'): void {
+  jingle(id: JingleId): void {
     try {
       const ctx = this.ctx;
       const g = this.graph;

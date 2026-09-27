@@ -11,9 +11,10 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "sim": "node --experimental-strip-types scripts/sim.ts",
-    "e2e": "node tests/e2e.mjs",
+    "e2e": "node tests/e2e.mjs && node tests/e2e-field.mjs",
     "art:cutout": "node scripts/art-cutout.mjs",
-    "art:sheet": "node scripts/art-sheet.mjs"
+    "art:sheet": "node scripts/art-sheet.mjs",
+    "art:field": "node scripts/field-preview.mjs"
   },
   "dependencies": {
     "inkjs": "^2.4.0",

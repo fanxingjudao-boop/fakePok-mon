@@ -254,6 +254,145 @@ button:focus-visible, [tabindex]:focus-visible { outline: 3px solid var(--hekika
 .compact .log { display: none; }
 .compact .waiting { padding: 6px 4px; font-size: 14px; }
 
+/* ---------- フィールド ---------- */
+#app.layout-field { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+#app.layout-field #dock, #app.layout-field #memo-out { display: none; }
+#app.layout-field.short { padding: 0; gap: 0; }
+#app.layout-field.short #stage canvas { border-radius: 0; }
+#field-hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+#field-hud[hidden] { display: none; }
+.hud-place {
+  position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); top: calc(12px + env(safe-area-inset-top, 0px));
+  display: grid; gap: 2px; max-width: min(560px, 62vw); padding: 8px 14px; border-radius: 12px;
+  background: rgba(11, 23, 27, 0.72); border: 1px solid rgba(62, 224, 200, 0.25); backdrop-filter: blur(4px);
+}
+.hud-place b { font-family: var(--display); font-size: 17px; letter-spacing: 0.05em; }
+.hud-place span { font-size: 14px; color: var(--gold); }
+.hud-place span:empty { display: none; }
+.hud-btn {
+  position: absolute; pointer-events: auto; min-width: 64px; min-height: 48px; padding: 0 16px; border-radius: 14px; cursor: pointer;
+  background: rgba(11, 23, 27, 0.78); border: 1px solid var(--line); color: var(--text); font-weight: 700; font-size: 15px;
+}
+#hud-menu { right: max(16px, env(safe-area-inset-right, 0px)); top: calc(12px + env(safe-area-inset-top, 0px)); }
+#hud-act {
+  right: max(20px, env(safe-area-inset-right, 0px)); bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  width: 84px; height: 84px; border-radius: 50%; border: 2px solid var(--hekikan); background: rgba(26, 143, 130, 0.55); font-size: 16px;
+  display: none;
+}
+@media (pointer: coarse) { #hud-act { display: block; } }
+@media (max-height: 560px) {
+  .hud-place { top: 6px; left: max(8px, env(safe-area-inset-left, 0px)); padding: 4px 10px; }
+  .hud-place b { font-size: 14px; }
+  .hud-place span { font-size: 12.5px; }
+  #hud-menu { top: 6px; right: max(8px, env(safe-area-inset-right, 0px)); min-height: 44px; }
+  #hud-act { width: 72px; height: 72px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+}
+
+/* メニュー */
+.menu { max-width: 1040px; }
+.menu-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.menu-top h2 { margin: 0; font-family: var(--display); font-size: 26px; }
+.menu-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.menu-sec { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; display: grid; gap: 8px; align-content: start; }
+.menu-sec.wide { grid-column: 1 / -1; }
+.menu-sec h3 { margin: 0; font-size: 13px; letter-spacing: 0.12em; color: var(--muted); }
+.pm { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 12px; align-items: center; }
+.pm img { width: 64px; height: 64px; object-fit: contain; background: var(--panel-2); border-radius: 12px; }
+.pm b { font-size: 17px; }
+.pm .lv { color: var(--hekikan); font-weight: 700; font-size: 14px; }
+.pm .bar { height: 9px; margin: 4px 0 2px; }
+.pm .bar.low > i { background: var(--danger); }
+.pm .num { font-size: 13px; color: var(--muted); }
+.pm .ko { color: var(--danger); font-size: 13px; }
+.pm .ab { font-size: 12.5px; color: var(--muted); }
+.exp { margin: 0; font-size: 13px; color: var(--muted); }
+.it { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; padding: 8px 0; border-bottom: 1px dashed var(--line); }
+.it:last-child { border-bottom: 0; }
+.it b { font-size: 16px; }
+.it .desc { font-size: 12.5px; color: var(--muted); }
+.it .use { display: flex; flex-wrap: wrap; gap: 6px; }
+.btn.sm { min-height: 44px; padding: 0 14px; font-size: 14px; }
+.btn[disabled] { opacity: 0.4; cursor: not-allowed; }
+.menu-obj { margin: 0; font-size: 17px; color: var(--gold); font-weight: 700; }
+.menu-notes { margin: 0; padding-left: 1.4em; display: grid; gap: 4px; font-size: 14.5px; }
+.menu-notes .empty, .records .empty { color: var(--faint); list-style: none; margin: 0; }
+.records { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+.rec { display: grid; grid-template-columns: 52px minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 10px; align-items: center; background: var(--panel-2); border-radius: 12px; padding: 6px 10px; }
+.rec img { grid-row: 1 / span 2; width: 52px; height: 52px; object-fit: contain; }
+.rec b { font-size: 15px; }
+.rec span { font-size: 12.5px; color: var(--muted); }
+.chapter .choices-made h3 { margin: 0 0 6px; font-size: 15px; color: var(--muted); }
+.chapter .choices-made ul { margin: 0; padding-left: 1.3em; display: grid; gap: 4px; font-size: 16px; }
+.title-main .btn.big { min-height: 56px; padding: 0 28px; font-size: 18px; }
+.sec-h { margin: 6px 0 -8px; font-size: 13px; letter-spacing: 0.14em; color: var(--faint); }
+
+/* ---------- 会話 ---------- */
+.talk { position: fixed; inset: 0; z-index: 15; display: flex; align-items: flex-end; justify-content: center; padding: 12px max(12px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px)); cursor: pointer; }
+.talk[hidden] { display: none; }
+.talk-portrait {
+  position: absolute; left: max(8px, calc(50% - 560px)); bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  height: min(62vh, 520px); max-width: 38vw; object-fit: contain; object-position: bottom;
+  filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.55)); pointer-events: none; transform-origin: bottom center;
+}
+.talk-portrait.pop { animation: pt-in 0.22s ease-out; }
+.talk-portrait.pop[data-face='surprised'] { animation: pt-jump 0.35s ease-out; }
+.talk-portrait.pop[data-face='angry'] { animation: pt-shake 0.35s ease-out; }
+.talk-portrait.pop[data-face='smile'] { animation: pt-bounce 0.4s ease-out; }
+.talk-portrait[data-face='sad'] { filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.55)) saturate(0.7) brightness(0.88); transform: translateY(6px); }
+.talk-portrait[data-face='think'] { transform: rotate(-2deg); }
+@keyframes pt-in { from { opacity: 0.4; transform: translateY(10px); } }
+@keyframes pt-jump { 30% { transform: translateY(-18px); } 60% { transform: translateY(2px); } }
+@keyframes pt-shake { 20% { transform: translateX(-8px); } 40% { transform: translateX(7px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(2px); } }
+@keyframes pt-bounce { 40% { transform: translateY(-8px) scale(1.01); } }
+.talk-box {
+  position: relative; width: min(980px, 100%); min-height: 150px;
+  background: linear-gradient(180deg, rgba(16, 36, 41, 0.94), rgba(11, 23, 27, 0.97));
+  border: 1px solid var(--line); border-top: 2px solid var(--hekikan); border-radius: 16px;
+  padding: 14px 20px 44px; box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+}
+.talk-box.with-portrait { padding-left: clamp(20px, 22vw, 250px); }
+.talk-name { font-family: var(--display); font-weight: 800; font-size: 20px; margin-bottom: 4px; letter-spacing: 0.04em; }
+.talk-name[hidden] { display: none; }
+.talk-text { font-size: clamp(17px, 2.1vw, 21px); line-height: 1.7; white-space: pre-wrap; min-height: 3.4em; }
+.talk-box.narration .talk-text { color: #cfe3de; font-style: normal; }
+.talk-next { position: absolute; right: 22px; bottom: 50px; color: var(--hekikan); animation: nxt 0.9s ease-in-out infinite; }
+.talk-next[hidden] { display: none; }
+@keyframes nxt { 50% { transform: translateY(4px); opacity: 0.5; } }
+.talk-choices { display: grid; gap: 8px; margin-top: 8px; }
+.talk-choices:empty { display: none; }
+.talk-choice {
+  display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 16px; text-align: left; cursor: pointer;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; font-size: 17px; font-weight: 700;
+}
+.talk-choice:hover, .talk-choice:focus-visible { border-color: var(--hekikan); background: var(--panel-3); }
+.talk-choice kbd { font: 700 12px var(--body); color: var(--muted); background: var(--ground); border: 1px solid var(--line); border-radius: 5px; padding: 0 5px; }
+.talk-tools { position: absolute; right: 10px; bottom: 4px; display: flex; gap: 4px; }
+.talk-tools button { min-height: 44px; min-width: 44px; padding: 0 10px; border: 0; background: transparent; color: var(--muted); font-size: 13px; cursor: pointer; border-radius: 8px; }
+.talk-tools button:hover { color: var(--text); background: rgba(255, 255, 255, 0.05); }
+.talk-tools button[aria-pressed='true'] { color: var(--hekikan); }
+.talk-log { position: fixed; inset: 5vh max(16px, 50% - 380px); z-index: 16; display: grid; grid-template-rows: auto minmax(0, 1fr); background: var(--panel); border: 1px solid var(--line); border-radius: 14px; cursor: default; }
+.talk-log[hidden] { display: none; }
+.talk-log-head { display: flex; justify-content: space-between; align-items: center; padding: 6px 8px 6px 16px; border-bottom: 1px solid var(--line); }
+.talk-log-head button { min-height: 44px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel-2); cursor: pointer; }
+.talk-log-body { overflow: auto; padding: 10px 16px 16px; }
+.talk-log-body p { margin: 0 0 10px; font-size: 15px; line-height: 1.6; }
+.talk-log-body p b { display: block; font-size: 12.5px; color: var(--hekikan); }
+.talk-log-body p.choice { color: var(--gold); }
+@media (max-height: 560px) {
+  .talk { padding-block: 6px calc(6px + env(safe-area-inset-bottom, 0px)); }
+  .talk-box { min-height: 118px; padding: 8px 14px 40px; }
+  .talk-box.with-portrait { padding-left: clamp(14px, 20vw, 200px); }
+  .talk-portrait { height: 78vh; max-width: 30vw; bottom: 0; }
+  .talk-name { font-size: 16px; margin-bottom: 0; }
+  .talk-text { font-size: 16px; line-height: 1.55; min-height: 3.1em; }
+  .talk-choice { min-height: 44px; font-size: 15px; }
+  .talk-choices { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+}
+@media (max-width: 560px) {
+  .talk-box.with-portrait { padding-left: 20px; padding-top: 16px; }
+  .talk-portrait { height: 34vh; max-width: 60vw; left: 8px; bottom: auto; top: calc(100% - 34vh - 190px); }
+}
+
 /* ---------- 画面(タイトル・結果・遊び方・設定)---------- */
 .screen {
   position: fixed; inset: 0; z-index: 20;

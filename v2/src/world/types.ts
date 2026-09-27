@@ -36,8 +36,9 @@ export interface MapObject {
   y: number;
   /** npc/guardian: 絵(人物は char_*、モンスターは unit の art キー) */
   art?: string;
-  /** prop の種類 */
+  /** prop の種類と絵の変種 */
   prop?: PropKind;
+  variant?: number;
   /** 話しかけた・調べたときに流す物語(ink の knot) */
   talk?: string;
   /** 表示する条件(満たさなければ存在しない) */
